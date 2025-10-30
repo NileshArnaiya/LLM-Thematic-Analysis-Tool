@@ -4,7 +4,7 @@ A comprehensive qualitative research analysis tool powered by Gemini 2.5 Pro, de
 
 ## 🎯 Overview
 
-Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab**, this tool provides:
+Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provides:
 
 - **Multi-perspective analysis** with 6 independent runs using varied parameters
 - **Automatic reliability assessment** using cosine similarity with semantic embeddings
@@ -418,7 +418,7 @@ This project is developed by Aza Lab for qualitative research applications. Plea
 ## 🆘 Support
 
 For technical support, feature requests, or research collaboration:
-- **Contact**: Aza Allsop and Nilesh Arnaiya at Aza Lab
+- **Contact**: Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale university
 - **Issues**: Report bugs and request features via GitHub issues
 - **Documentation**: Refer to inline code comments for implementation details
 

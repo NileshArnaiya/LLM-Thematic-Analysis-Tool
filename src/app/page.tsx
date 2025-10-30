@@ -19,6 +19,8 @@ const Home = () => {
   // ============================================================================
   
   const [apiKey, setApiKey] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-pro');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
   const [fileStats, setFileStats] = useState(null);
@@ -42,6 +44,80 @@ const Home = () => {
   const RETRY_DELAY_BASE = 1500;
   const TOTAL_RUNS = 6;
   const SEEDS = [42, 123, 456, 789, 1011, 1213];
+  
+  // Model configurations
+  const MODELS: any = {
+    'gemini-2.5-pro': {
+      name: 'Gemini 2.5 Pro',
+      provider: 'google',
+      endpoint: (key: string) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${key}`,
+      apiKeyName: 'Gemini API Key'
+    },
+    'claude-3-5-sonnet': {
+      name: 'Claude 3.5 Sonnet',
+      provider: 'anthropic',
+      endpoint: (key?: string) => 'https://api.anthropic.com/v1/messages',
+      apiKeyName: 'Anthropic API Key'
+    },
+    'gpt-4o': {
+      name: 'GPT-4o',
+      provider: 'openai',
+      endpoint: (key?: string) => 'https://api.openai.com/v1/chat/completions',
+      apiKeyName: 'OpenAI API Key'
+    },
+    'gpt-4-turbo': {
+      name: 'GPT-4 Turbo',
+      provider: 'openai',
+      endpoint: (key?: string) => 'https://api.openai.com/v1/chat/completions',
+      apiKeyName: 'OpenAI API Key'
+    },
+    'llama-3-70b': {
+      name: 'Llama 3 70B',
+      provider: 'groq',
+      endpoint: (key?: string) => 'https://api.groq.com/openai/v1/chat/completions',
+      apiKeyName: 'Groq API Key'
+    },
+    'deepseek-chat': {
+      name: 'DeepSeek Chat',
+      provider: 'deepseek',
+      endpoint: (key?: string) => 'https://api.deepseek.com/v1/chat/completions',
+      apiKeyName: 'DeepSeek API Key'
+    }
+  };
+  
+  // Default prompt template
+  const DEFAULT_PROMPT = `Conduct a qualitative thematic analysis. Identify major emotional, psychological, and conceptual themes.
+
+For each theme provide:
+1. Theme name (concise title)
+2. Description (detailed explanation)
+3. Sentiment (positive, negative, or neutral)
+4. Frequency estimate (integer count)
+5. Evidence (2-3 direct quotes or examples)
+
+Also provide:
+- Dominant emotional tone (one word)
+- Overall sentiment score (0-1, where 0=negative, 1=positive)
+- Narrative arc (brief description)
+
+Return valid JSON in this exact structure:
+{
+  "majorEmotionalThemes": [
+    {
+      "theme": "Theme Name",
+      "description": "Detailed description",
+      "sentiment": "positive",
+      "frequency": 15,
+      "evidence": ["example 1", "example 2"]
+    }
+  ],
+  "emotionalPatterns": {
+    "dominantTone": "word",
+    "overallSentiment": 0.75,
+    "narrativeArc": "description"
+  },
+  "keyInsights": ["insight 1", "insight 2"]
+}`;
 
   useEffect(() => {
     const initializeExtractor = async () => {
@@ -301,22 +377,18 @@ const Home = () => {
   };
 
   // ============================================================================
-  // GEMINI API INTEGRATION
+  // MULTI-MODEL API INTEGRATION
   // ============================================================================
   
   /**
-   * Call Gemini API with comprehensive error handling
+   * Call AI API (supports multiple providers) with comprehensive error handling
    * 
-   * Key Features:
-   * - Structured prompt for consistent JSON responses
-   * - Temperature variation based on seed (introduces diversity)
-   * - Robust JSON parsing with fallback strategies
-   * - Detailed error categorization (auth, rate limit, network)
-   * 
-   * Model Choice: gemini-2.0-flash-exp
-   * - Faster than Pro models (lower latency)
-   * - Good quality for qualitative analysis
-   * - Better rate limits
+   * Supported Models:
+   * - Gemini 2.5 Pro (Google)
+   * - Claude 3.5 Sonnet (Anthropic)
+   * - GPT-4o / GPT-4 Turbo (OpenAI)
+   * - Llama 3 70B (Groq)
+   * - DeepSeek Chat (DeepSeek)
    * 
    * @param {string} text - Text to analyze
    * @param {number} seed - Seed for temperature variation
@@ -325,65 +397,82 @@ const Home = () => {
    * @param {number} totalChunks - Total number of chunks
    * @returns {Object} - Parsed analysis results
    */
-  const callGeminiAPI = async (text: string, seed: number, isChunked: boolean = false, chunkIndex: number = 0, totalChunks: number = 1) => {
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+  const callAIAPI = async (text: string, seed: number, isChunked: boolean = false, chunkIndex: number = 0, totalChunks: number = 1) => {
+    const modelConfig = MODELS[selectedModel as keyof typeof MODELS];
+    if (!modelConfig) {
+      throw new Error(`Unsupported model: ${selectedModel}`);
+    }
     
     const contextPrefix = isChunked 
       ? `This is chunk ${chunkIndex + 1} of ${totalChunks}. Analyze only this section.`
       : 'Analyze the complete text below.';
     
-    const prompt = `${contextPrefix}
+    const userPrompt = customPrompt || DEFAULT_PROMPT;
+    const fullPrompt = `${contextPrefix}\n\n${userPrompt}\n\nText: ${text}`;
 
-Conduct a qualitative thematic analysis. Identify major emotional, psychological, and conceptual themes.
-
-For each theme provide:
-1. Theme name (concise title)
-2. Description (detailed explanation)
-3. Sentiment (positive, negative, or neutral)
-4. Frequency estimate (integer count)
-5. Evidence (2-3 direct quotes or examples)
-
-Also provide:
-- Dominant emotional tone (one word)
-- Overall sentiment score (0-1, where 0=negative, 1=positive)
-- Narrative arc (brief description)
-
-Return valid JSON in this exact structure:
-{
-  "majorEmotionalThemes": [
-    {
-      "theme": "Theme Name",
-      "description": "Detailed description",
-      "sentiment": "positive",
-      "frequency": 15,
-      "evidence": ["example 1", "example 2"]
-    }
-  ],
-  "emotionalPatterns": {
-    "dominantTone": "word",
-    "overallSentiment": 0.75,
-    "narrativeArc": "description"
-  },
-  "keyInsights": ["insight 1", "insight 2"]
-}
-
-Text: ${text}`;
-
+    const temperature = 0.7 + (seed % 100) / 200;
     let response;
+    let requestBody: any;
+    let headers: any = { 'Content-Type': 'application/json' };
+    let API_URL = '';
+    
+    // Configure request based on provider
+    if (modelConfig.provider === 'google') {
+      API_URL = modelConfig.endpoint(apiKey);
+      requestBody = {
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: {
+          temperature,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192,
+        }
+      };
+    } else if (modelConfig.provider === 'anthropic') {
+      API_URL = modelConfig.endpoint();
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      requestBody = {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 8192,
+        temperature,
+        messages: [{ role: 'user', content: fullPrompt }]
+      };
+    } else if (modelConfig.provider === 'openai') {
+      API_URL = modelConfig.endpoint();
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      const modelName = selectedModel === 'gpt-4o' ? 'gpt-4o' : 'gpt-4-turbo';
+      requestBody = {
+        model: modelName,
+        messages: [{ role: 'user', content: fullPrompt }],
+        temperature,
+        max_tokens: 8192
+      };
+    } else if (modelConfig.provider === 'groq') {
+      API_URL = modelConfig.endpoint();
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      requestBody = {
+        model: 'llama-3.1-70b-versatile',
+        messages: [{ role: 'user', content: fullPrompt }],
+        temperature,
+        max_tokens: 8192
+      };
+    } else if (modelConfig.provider === 'deepseek') {
+      API_URL = modelConfig.endpoint();
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      requestBody = {
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: fullPrompt }],
+        temperature,
+        max_tokens: 8192
+      };
+    }
+    
     try {
       response = await fetch(API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            // Vary temperature by seed for diversity across runs
-            temperature: 0.7 + (seed % 100) / 200,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 8192,
-          }
-        })
+        headers,
+        body: JSON.stringify(requestBody)
       });
     } catch (fetchError) {
       const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
@@ -396,7 +485,7 @@ Text: ${text}`;
       
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error?.message || errorMessage;
+        errorMessage = errorData.error?.message || errorData.error || errorMessage;
         
         if (response.status === 429) {
           throw new Error(`Rate limit exceeded. Wait and retry. (${errorMessage})`);
@@ -413,7 +502,16 @@ Text: ${text}`;
     }
 
     const data = await response.json();
-    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let textResponse = '';
+    
+    // Extract response based on provider
+    if (modelConfig.provider === 'google') {
+      textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else if (modelConfig.provider === 'anthropic') {
+      textResponse = data.content?.[0]?.text || '';
+    } else if (modelConfig.provider === 'openai' || modelConfig.provider === 'groq' || modelConfig.provider === 'deepseek') {
+      textResponse = data.choices?.[0]?.message?.content || '';
+    }
     
     if (!textResponse) {
       throw new Error('No response from API');
@@ -448,7 +546,7 @@ Text: ${text}`;
   };
 
   // Wrap API call with retry logic
-  const callGeminiAPIWithRetry = withRetry(callGeminiAPI);
+  const callAIAPIWithRetry = withRetry(callAIAPI);
 
   // ============================================================================
   // MULTI-CHUNK ANALYSIS COORDINATION
@@ -477,14 +575,14 @@ Text: ${text}`;
     // Single chunk - simple path
     if (chunks.length === 1) {
       setCurrentStep(`Run ${runNumber}: Single-pass analysis`);
-      return await callGeminiAPIWithRetry(chunks[0], seed, false);
+      return await callAIAPIWithRetry(chunks[0], seed, false);
     }
     
     // Multiple chunks - analyze each and merge
     const chunkResults = [];
     for (let i = 0; i < chunks.length; i++) {
       setCurrentStep(`Run ${runNumber}: Analyzing chunk ${i + 1}/${chunks.length}`);
-      const result = await callGeminiAPIWithRetry(chunks[i], seed, true, i, chunks.length);
+      const result = await callAIAPIWithRetry(chunks[i], seed, true, i, chunks.length);
       chunkResults.push(result);
     }
     
@@ -537,7 +635,7 @@ Text: ${text}`;
     
     // Find most common tone
     const dominantTone = Object.entries(toneFrequency)
-      .sort((a, b) => b[1] - a[1])[0][0];
+      .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))[0][0];
     
     return {
       majorEmotionalThemes: Array.from(themeMap.values())
@@ -762,12 +860,12 @@ if (allRuns.length > 1) {
     const consensusThreshold = Math.max(1, Math.ceil(allRuns.length / 2));
     
     const consensusThemes = Object.entries(themeFrequency)
-      .filter(([_, freq]) => freq >= consensusThreshold)
-      .map(([theme, freq]) => ({
+      .filter(([_, freq]: any) => (freq as number) >= consensusThreshold)
+      .map(([theme, freq]: any) => ({
         theme,
         description: themeDescriptions[theme],
         sentiment: themeSentiments[theme],
-        consistency: (freq / allRuns.length * 100).toFixed(1),
+        consistency: ((freq as number) / allRuns.length * 100).toFixed(1),
         appearanceCount: freq,
         evidence: [...new Set(themeEvidence[theme])].slice(0, 5)
       }))
@@ -812,6 +910,16 @@ if (allRuns.length > 1) {
     const uploadedFile = e.target.files[0];
     
     if (!uploadedFile) return;
+    
+    // Check file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (uploadedFile.size > maxSize) {
+      setError(`File size exceeds 5MB limit. File size: ${(uploadedFile.size / 1024 / 1024).toFixed(2)}MB. Please chunk your file into smaller parts (under 5MB each) and combine outputs later.`);
+      setFile(null);
+      setFileName('');
+      setFileStats(null);
+      return;
+    }
     
     if (uploadedFile.type === 'text/plain' || uploadedFile.name.endsWith('.txt')) {
       setFile(uploadedFile);
@@ -1102,72 +1210,198 @@ if (allRuns.length > 1) {
     );
   };
 
+  const exportCSV = (usePartial = false) => {
+    const dataToExport = usePartial ? partialResults : results;
+    if (!dataToExport) return;
+
+    // CSV Header
+    let csv = 'Theme,Description,Sentiment,Consistency,Appearance Count,Evidence\n';
+    
+    // Add themes
+    dataToExport.consensusThemes.forEach((theme: any) => {
+      const themeName = `"${(theme.theme || '').replace(/"/g, '""')}"`;
+      const description = `"${(theme.description || '').replace(/"/g, '""')}"`;
+      const sentiment = theme.sentiment || '';
+      const consistency = theme.consistency || '0';
+      const appearanceCount = theme.appearanceCount || '0';
+      const evidence = `"${(theme.evidence?.[0] || '').replace(/"/g, '""')}"`;
+      
+      csv += `${themeName},${description},${sentiment},${consistency},${appearanceCount},${evidence}\n`;
+    });
+    
+    // Add reliability metrics as separate rows
+    csv += '\n';
+    csv += 'Metric,Value\n';
+    csv += `Average Consistency,${dataToExport.reliability.avgSimilarity}%\n`;
+    csv += `Consistency Range,${dataToExport.reliability.minSimilarity}% - ${dataToExport.reliability.maxSimilarity}%\n`;
+    csv += `Reliability Assessment,${dataToExport.reliability.interpretation}\n`;
+    csv += `Completed Runs,${dataToExport.reliability.runCount}/${TOTAL_RUNS}\n`;
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const suffix = usePartial ? '_partial' : '';
+    downloadFile(
+      csv,
+      `thematic_analysis${suffix}_${fileName.replace('.txt', '')}_${timestamp}.csv`,
+      'text/csv'
+    );
+  };
+
   // ============================================================================
   // RENDER COMPONENT
   // ============================================================================
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#fafafa] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
         {/* Main Input Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 mb-8">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <BarChart3 className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-3xl font-bold text-gray-800">Reliable Qualitative Thematic Analyzer</h1>
-          </div>
-          
-          {/* Attribution */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg">
-            <p className="text-sm text-gray-700 mb-2">
-              <span className="font-semibold">Created by:</span> Aza Allsop and Nilesh Arnaiya at Aza Lab
-            </p>
-            <p className="text-sm text-gray-600 mb-3">
-              Comprehensive qualitative research analysis tool powered by Gemini 2.5 Pro, a complimentary tool to your human-level qualitative research pipeline. Easy to use with any file, change the prompts according to your text files to get the best results.
-            </p>
-            <div className="flex items-center gap-4">
-              <a 
-                href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
-                </svg>
-                View on GitHub
-              </a>
-              <span className="text-sm text-gray-500">⭐ Give us a star!</span>
+          <div className="mb-8 pb-6 border-b border-gray-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-gray-50 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-gray-700" />
+              </div>
+              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Reliable Qualitative Thematic Analyzer</h1>
+            </div>
+            
+            {/* Attribution */}
+            <div className="mt-4">
+              <p className="text-sm text-gray-600 mb-2">
+                <span className="font-medium text-gray-900">Created by:</span> Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale University
+              </p>
+              <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                Comprehensive qualitative research analysis tool powered by advanced AI models. A complementary tool to your human-level qualitative research pipeline. Customize prompts for optimal results.
+              </p>
+              <div className="flex items-center gap-3">
+                <a 
+                  href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors text-sm font-medium"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+                  </svg>
+                  View on GitHub
+                </a>
+                <span className="text-xs text-gray-500">⭐ Give us a star!</span>
+              </div>
             </div>
           </div>
           
-          <p className="text-gray-600 mb-8">
-            Multi-perspective analysis with auto-save and instant downloads (We do 6 runs and average them out and compare them to get the best results with cosine similarity with https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) - Feel free to change the number of runs and seeds to get the best results.
+          <p className="text-sm text-gray-600 mb-8 leading-relaxed">
+            Multi-perspective analysis with auto-save and instant downloads. Performs 6 independent runs and compares them using cosine similarity with{' '}
+            <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer" className="text-gray-900 underline hover:text-gray-700">all-MiniLM-L6-v2</a>(You can use other Similarity methods if you desire, see code!)
+            {' '}for reliability assessment. Customize runs and seeds as needed.
           </p>
+
+          {/* Important Warnings */}
+          <div className="mb-8 p-4 bg-red-50/50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-medium text-red-900 mb-3 text-sm">Important Security & Privacy Notice</h3>
+                <ul className="text-sm text-red-800 space-y-2 mb-3">
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-1">•</span>
+                    <span><strong className="font-medium">Always use deidentified data</strong> — Remove all personally identifiable information before uploading</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-1">•</span>
+                    <span><strong className="font-medium">No data is stored</strong> — All processing happens in your browser, no server storage</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-1">•</span>
+                    <span><strong className="font-medium">NOT HIPAA compliant</strong> — This tool is not designed for protected health information</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-red-600 mt-1">•</span>
+                    <span><strong className="font-medium">Use at your own risk</strong> — Ensure compliance with your organization's data policies</span>
+                  </li>
+                </ul>
+                <p className="text-xs text-red-700">
+                  <strong>GitHub:</strong> The whole process and code is open source at{' '}
+                  <a href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-red-900">our GitHub repository</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Model Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
+              Select AI Model
+            </label>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors disabled:bg-gray-50 disabled:text-gray-500"
+              disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
+            >
+              {Object.entries(MODELS).map(([key, config]) => (
+                <option key={key} value={key}>{config.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Choose the AI model to use for analysis. Each model has different strengths and capabilities.
+            </p>
+          </div>
 
           {/* API Key Input */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Gemini API Key
+            <label className="block text-sm font-medium text-gray-900 mb-2">
+              {MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API Key'}
             </label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Gemini API key"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder={`Enter your ${MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API'} key`}
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors placeholder:text-gray-400"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a>
+              {selectedModel === 'gemini-2.5-pro' && (
+                <>Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a></>
+              )}
+              {selectedModel === 'claude-3-5-sonnet' && (
+                <>Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Anthropic Console</a></>
+              )}
+              {selectedModel.startsWith('gpt-') && (
+                <>Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">OpenAI Platform</a></>
+              )}
+              {selectedModel === 'llama-3-70b' && (
+                <>Get your API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Groq Console</a></>
+              )}
+              {selectedModel === 'deepseek-chat' && (
+                <>Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">DeepSeek Platform</a></>
+              )}
+            </p>
+          </div>
+
+          {/* Custom Prompt */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
+              Custom Prompt <span className="text-gray-500 font-normal">(Optional)</span>
+            </label>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder={DEFAULT_PROMPT}
+              rows={12}
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors font-mono placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
+              disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
+            />
+            <p className="text-xs text-gray-500 mt-1.5">
+              Upload transcript dialogue data and customize prompts to steer the model for best outputs. Leave empty to use default prompt.
             </p>
           </div>
 
           {/* File Upload */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Upload Text File
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-indigo-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors bg-gray-50/50">
               <input
                 type="file"
                 accept=".txt"
@@ -1177,38 +1411,44 @@ if (allRuns.length > 1) {
                 disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
               />
               <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600 mb-1">
+                <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-700 mb-1 font-medium">
                   {fileName || 'Click to upload or drag and drop'}
                 </p>
-                <p className="text-sm text-gray-400">Large transcript files supported (.txt format)</p>
+                <p className="text-xs text-gray-500">Transcript files (.txt format)</p>
               </label>
+            </div>
+            <div className="mt-3 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-900">
+                <strong className="font-medium">File Size Warning:</strong> Do not upload files above 5MB. For larger files, 
+                chunk them into multiple smaller files (under 5MB each) and combine the outputs later for best results.
+              </p>
             </div>
           </div>
 
           {/* File Stats Display */}
           {fileStats && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <FileSearch className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">File Statistics</h3>
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <FileSearch className="w-4 h-4 text-gray-600" />
+                <h3 className="font-medium text-gray-900 text-sm">File Statistics</h3>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-600">Size</p>
-                  <p className="font-semibold text-gray-800">{fileStats.size} KB</p>
+                  <p className="text-gray-500 text-xs mb-1">Size</p>
+                  <p className="font-medium text-gray-900">{fileStats.size} KB</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Lines</p>
-                  <p className="font-semibold text-gray-800">{fileStats.lines.toLocaleString()}</p>
+                  <p className="text-gray-500 text-xs mb-1">Lines</p>
+                  <p className="font-medium text-gray-900">{fileStats.lines.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Words</p>
-                  <p className="font-semibold text-gray-800">{fileStats.words.toLocaleString()}</p>
+                  <p className="text-gray-500 text-xs mb-1">Words</p>
+                  <p className="font-medium text-gray-900">{fileStats.words.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Characters</p>
-                  <p className="font-semibold text-gray-800">{fileStats.chars.toLocaleString()}</p>
+                  <p className="text-gray-500 text-xs mb-1">Characters</p>
+                  <p className="font-medium text-gray-900">{fileStats.chars.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -1216,10 +1456,10 @@ if (allRuns.length > 1) {
 
           {/* Progress Saved Indicator */}
           {completedRuns.length > 0 && completedRuns.length < TOTAL_RUNS && (
-            <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Save className="w-5 h-5 text-purple-600" />
-                <h3 className="font-semibold text-purple-900">Progress Saved</h3>
+                <Save className="w-4 h-4 text-gray-600" />
+                <h3 className="font-medium text-gray-900 text-sm">Progress Saved</h3>
               </div>
               <p className="text-sm text-gray-700">
                 {completedRuns.length} of {TOTAL_RUNS} runs completed and auto-downloaded!
@@ -1229,10 +1469,10 @@ if (allRuns.length > 1) {
 
           {/* Cleaning Stats Display */}
           {cleaningStats && status !== 'idle' && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Scissors className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-green-900">Preprocessing Complete</h3>
+                <Scissors className="w-4 h-4 text-gray-600" />
+                <h3 className="font-medium text-gray-900 text-sm">Preprocessing Complete</h3>
               </div>
               <p className="text-sm text-gray-700">
                 Removed {cleaningStats.removedChars.toLocaleString()} characters ({cleaningStats.reductionPercent}%) of metadata
@@ -1270,16 +1510,16 @@ if (allRuns.length > 1) {
             <button
               onClick={() => handleAnalysis(0)}
               disabled={status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing'}
-              className="w-full bg-indigo-600 text-white py-4 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-gray-500 flex items-center justify-center gap-2 text-sm"
             >
               {status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing' ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   {status === 'preprocessing' ? 'Preprocessing...' : status === 'analyzing' ? `Analyzing (Run ${currentRun}/${TOTAL_RUNS})` : 'Synthesizing Results'}
                 </>
               ) : (
                 <>
-                  <Play className="w-5 h-5" />
+                  <Play className="w-4 h-4" />
                   {completedRuns.length > 0 ? 'Start New Analysis' : 'Start Analysis'}
                 </>
               )}
@@ -1288,9 +1528,9 @@ if (allRuns.length > 1) {
             {completedRuns.length > 0 && completedRuns.length < TOTAL_RUNS && status !== 'analyzing' && (
               <button
                 onClick={handleResume}
-                className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-3"
+                className="w-full bg-white text-gray-900 border border-gray-300 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
               >
-                <RefreshCw className="w-5 h-5" />
+                <RefreshCw className="w-4 h-4" />
                 Resume from Run {completedRuns.length + 1} ({TOTAL_RUNS - completedRuns.length} remaining)
               </button>
             )}
@@ -1305,18 +1545,18 @@ if (allRuns.length > 1) {
 
           {/* Progress Bar */}
           {(status === 'analyzing' || status === 'synthesizing' || status === 'preprocessing') && (
-            <div className="mt-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="mt-6 pt-6 border-t border-gray-100">
+              <div className="flex justify-between text-xs text-gray-600 mb-2">
                 <span>Progress</span>
-                <span>{Math.round(progress)}%</span>
+                <span className="font-medium">{Math.round(progress)}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                 <div
-                  className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
+                  className="bg-gray-900 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
+              <p className="text-xs text-gray-500 text-center">
                 Each run auto-downloads to your browser. Check downloads folder!
               </p>
             </div>
@@ -1328,40 +1568,40 @@ if (allRuns.length > 1) {
           <div className="space-y-6">
             {/* Partial Results Warning */}
             {(status === 'partial' || (results && results.reliability.runCount < TOTAL_RUNS)) && (
-              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <AlertCircle className="w-6 h-6 text-yellow-600" />
-                  <h3 className="text-lg font-bold text-yellow-900">Partial Analysis Results</h3>
+              <div className="bg-amber-50/50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                  <h3 className="text-sm font-medium text-amber-900">Partial Analysis Results</h3>
                 </div>
-                <p className="text-yellow-800 mb-2">
+                <p className="text-sm text-amber-800 mb-1">
                   Completed {(results || partialResults).reliability.runCount} of {TOTAL_RUNS} runs. All saved to downloads!
                 </p>
-                <p className="text-sm text-yellow-700">
+                <p className="text-xs text-amber-700">
                   Use the "Resume" button above to complete remaining runs for better reliability.
                 </p>
               </div>
             )}
 
             {/* Reliability Metrics */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-                <h2 className="text-2xl font-bold text-gray-800">Reliability Metrics</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <TrendingUp className="w-5 h-5 text-gray-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Reliability Metrics</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl">
-                  <p className="text-sm text-gray-600 mb-2">Average Consistency</p>
-                  <p className="text-3xl font-bold text-blue-700">{(results || partialResults).reliability.avgSimilarity}%</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1.5">Average Consistency</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(results || partialResults).reliability.avgSimilarity}%</p>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl">
-                  <p className="text-sm text-gray-600 mb-2">Consistency Range</p>
-                  <p className="text-2xl font-bold text-green-700">
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1.5">Consistency Range</p>
+                  <p className="text-lg font-semibold text-gray-900">
                     {(results || partialResults).reliability.minSimilarity}% - {(results || partialResults).reliability.maxSimilarity}%
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl">
-                  <p className="text-sm text-gray-600 mb-2">Reliability</p>
-                  <p className="text-3xl font-bold text-purple-700">{(results || partialResults).reliability.interpretation}</p>
+                <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1.5">Reliability</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(results || partialResults).reliability.interpretation}</p>
                   <p className="text-xs text-gray-600 mt-1">
                     Based on {(results || partialResults).reliability.runCount}/{TOTAL_RUNS} runs
                   </p>
@@ -1369,59 +1609,59 @@ if (allRuns.length > 1) {
               </div>
               
               {(results || partialResults).reliability.warning && (
-                <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
-                    ⚠️ {(results || partialResults).reliability.warning}
+                <div className="mt-4 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    {(results || partialResults).reliability.warning}
                   </p>
                 </div>
               )}
             </div>
 
             {/* Consensus Themes */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-6 h-6 text-indigo-600" />
-                  <h2 className="text-2xl font-bold text-gray-800">Consensus Themes</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-gray-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Consensus Themes</h2>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-gray-500">
                   {(results || partialResults).consensusThemes.length} themes identified
                 </p>
               </div>
               
               {(results || partialResults).consensusThemes.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No consensus themes found.</p>
-                  <p className="text-sm mt-2">This may indicate varied content or insufficient runs.</p>
+                  <p className="text-sm">No consensus themes found.</p>
+                  <p className="text-xs mt-1">This may indicate varied content or insufficient runs.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {(results || partialResults).consensusThemes.map((theme, idx) => (
-                    <div key={idx} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-xl font-semibold text-gray-800 flex-1">{theme.theme}</h3>
-                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium whitespace-nowrap ml-4">
+                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-base font-medium text-gray-900 flex-1">{theme.theme}</h3>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium whitespace-nowrap ml-3">
                           {theme.consistency}% consistency
                         </span>
                       </div>
-                      <p className="text-gray-600 mb-3">{theme.description}</p>
+                      <p className="text-sm text-gray-600 mb-3 leading-relaxed">{theme.description}</p>
                       {theme.evidence && theme.evidence.length > 0 && (
-                        <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="mb-3 p-3 bg-gray-50 rounded border border-gray-100">
                           <p className="text-xs text-gray-500 mb-1">Supporting Evidence:</p>
                           <p className="text-sm text-gray-700 italic">"{theme.evidence[0]}"</p>
                         </div>
                       )}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-3 py-1 rounded-full text-sm ${
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
                           theme.sentiment === 'positive' 
-                            ? 'bg-green-100 text-green-700' 
+                            ? 'bg-green-50 text-green-700 border border-green-200' 
                             : theme.sentiment === 'negative'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-gray-50 text-gray-700 border border-gray-200'
                         }`}>
                           {theme.sentiment}
                         </span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-xs text-gray-500">
                           Appeared in {theme.appearanceCount}/{(results || partialResults).reliability.runCount} runs
                         </span>
                       </div>
@@ -1432,25 +1672,32 @@ if (allRuns.length > 1) {
             </div>
 
             {/* Export Options */}
-            <div className="bg-white rounded-2xl shadow-xl p-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Manual Export Options</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Export Options</h2>
               <p className="text-sm text-gray-600 mb-4">
                 Note: Individual runs and final synthesis already auto-downloaded. These are additional export formats.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => exportResults(status === 'partial')}
-                  className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
-                  <Download className="w-5 h-5" />
-                  Export Full JSON
+                  <Download className="w-4 h-4" />
+                  Export JSON
+                </button>
+                <button
+                  onClick={() => exportCSV(status === 'partial')}
+                  className="flex-1 bg-white text-gray-900 border border-gray-300 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
                 </button>
                 <button
                   onClick={() => exportReport(status === 'partial')}
-                  className="flex-1 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 bg-white text-gray-900 border border-gray-300 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
-                  <FileText className="w-5 h-5" />
-                  Export Text Report
+                  <FileText className="w-4 h-4" />
+                  Export Report
                 </button>
               </div>
             </div>
