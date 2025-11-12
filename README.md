@@ -321,11 +321,6 @@ GEMINI_API_KEY=your_api_key_here
 - **API Response**: Intelligent caching of analysis results
 - **File Processing**: Client-side text processing reduces server load
 
-### Memory Management
-- **Blob Cleanup**: Automatic URL.revokeObjectURL() for downloads
-- **State Optimization**: Efficient React state updates
-- **Chunk Processing**: Streaming analysis for large files
-
 ## 🔒 Security & Privacy
 
 ### Data Handling
@@ -370,8 +365,8 @@ const nextConfig: NextConfig = {
 ## 📝 Usage Examples
 
 ### Basic Analysis Workflow
-1. **Upload**: Drag and drop a .txt file
-2. **Configure**: Enter Gemini API key
+1. **Upload**: Drag and drop a .txt file (Other files that you might need, propose a new PR or feature request in github issues) 
+2. **Configure**: Enter Gemini API key, Claude, or OpenAI key
 3. **Analyze**: Click "Start Analysis" 
 4. **Monitor**: Watch real-time progress
 5. **Review**: Examine consensus themes
@@ -406,10 +401,27 @@ const nextConfig: NextConfig = {
 - **Performance**: Monitor bundle size and runtime performance
 
 ### Feature Requests
-- **Reliability Improvements**: Enhanced similarity algorithms
-- **Export Formats**: Additional output formats (CSV, XML)
+- **Reliability Improvements**: Enhanced similarity algorithms in separate files with comparison of outputs 
+- **Export Formats**: Additional output formats (CSV, XML) - Document why is needed?
 - **UI Enhancements**: Improved visualization and interaction
 - **API Integration**: Support for additional language models
+
+
+## Citing ThemeLLM
+
+If you use ThemeLLM in your research, please use the following BibTeX entry.
+
+```bibtex
+@article{azaNilesh2025,
+  title={ThemeLLM: Reliable Multi-Perspective Thematic Analysis via LLM
+Ensemble Validation: A Cross-Validation Approach to
+Qualitative Research},
+  author={Aza Allsop, Nilesh Jain},
+  journal={arXiv preprint arXiv:2408.0071114},
+  url={https://arxiv.org/abs/2408.00712114},
+  year={2025}
+}
+```
 
 ## 📄 License
 
