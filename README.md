@@ -33,6 +33,13 @@ Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provi
 - **Resume Functionality**: Continue interrupted analyses from the last successful run
 - **Error Recovery**: Robust error handling with retry mechanisms
 
+
+## Screenshots
+
+![alt text](1.png)
+![alt text](2.png)
+
+
 ## 🛠 Technical Implementation
 
 ### Architecture Overview
