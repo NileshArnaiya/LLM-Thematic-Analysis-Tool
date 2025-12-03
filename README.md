@@ -1,21 +1,22 @@
 # Reliable Qualitative Thematic Analyzer
 
-A comprehensive qualitative research analysis tool powered by Gemini 2.5 Pro, designed as a complimentary tool to human-level qualitative research pipelines. This application performs multi-perspective thematic analysis with automatic reliability assessment and instant data export capabilities.
+A comprehensive qualitative research analysis tool with comparative study powered by Gemini 2.5 Pro, Claude, GPT, LLama designed as a complimentary tool to human-level qualitative research pipelines. This application performs multi-perspective multi-run thematic analysis with automatic reliability assessment, comparison with multiple LLMs and instant data export capabilities.
 
 ## 🎯 Overview
 
 Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provides:
 
 - **Multi-perspective analysis** with 6 independent runs using varied parameters
-- **Automatic reliability assessment** using cosine similarity with semantic embeddings
+- **Automatic reliability assessment** using cosine similarity(see below for model info) with semantic embeddings
 - **Auto-save functionality** - each run downloads immediately to prevent data loss
-- **Resume capability** - continue from interrupted analyses
+- **Resume capability** - continue from interrupted analyses (Sometimes from API timeouts or rate limits or a huge text file) 
 - **Comprehensive export options** - JSON data and formatted text reports
 
 ## 🚀 Key Features
 
 ### Core Analysis Engine
 - **Gemini 2.5 Pro Integration**: Uses Google's latest language model for qualitative analysis
+- **GPT-4o Integration**: Uses OpenAI's latest language model for qualitative analysis at the time of experimentation 
 - **Semantic Similarity**: Implements Hugging Face's `all-MiniLM-L6-v2` model for reliability scoring
 - **Multi-Run Strategy**: Performs 6 independent analyses with different seeds for consistency validation
 - **Intelligent Chunking**: Automatically splits large texts while preserving semantic boundaries
