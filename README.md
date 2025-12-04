@@ -1,38 +1,114 @@
 # Reliable Qualitative Thematic Analyzer
 
-A comprehensive qualitative research analysis tool with comparative study powered by Gemini 2.5 Pro, Claude, GPT, LLama designed as a complimentary tool to human-level qualitative research pipelines. This application performs multi-perspective multi-run thematic analysis with automatic reliability assessment, comparison with multiple LLMs and instant data export capabilities.
+A comprehensive qualitative research analysis tool with comparative study powered by **Gemini 2.5 Pro, Claude 3.5 Sonnet, Azure GPT-4o, GPT-4o, Llama 3.2 90B, DeepSeek R1** and more via OpenRouter. Designed as a complementary tool to human-level qualitative research pipelines. This application performs multi-perspective multi-run thematic analysis with automatic reliability assessment using **Cohen's Kappa** and **Cosine Similarity**, comparison across multiple LLMs, and instant data export capabilities.
 
 ## 🎯 Overview
 
 Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provides:
 
-- **Multi-perspective analysis** with 6 independent runs using varied parameters
-- **Automatic reliability assessment** using cosine similarity(see below for model info) with semantic embeddings
-- **Auto-save functionality** - each run downloads immediately to prevent data loss
-- **Resume capability** - continue from interrupted analyses (Sometimes from API timeouts or rate limits or a huge text file) 
-- **Comprehensive export options** - JSON data and formatted text reports
+- **Multi-LLM Support** - Compare results across Gemini, Claude, GPT-4o, Llama, DeepSeek
+- **Multi-perspective analysis** with configurable runs (1-6) using customizable seeds
+- **Dual reliability metrics** - Cohen's Kappa (κ) and Cosine Similarity with semantic embeddings
+- **Configurable temperature** - Control randomness/creativity (0.0-2.0)
+- **Custom prompts** - Full control with `{seed}` and `{text_chunk}` placeholders
+- **Consensus themes** - Works with both default and custom prompt structures
+- **Auto-save functionality** - Each run downloads immediately to prevent data loss
+- **Resume capability** - Continue from interrupted analyses
+- **Modern UI** - Beautiful gradient design with glassmorphism effects
+- **Comprehensive export options** - JSON, CSV, and formatted text reports
 
 ## 🚀 Key Features
 
 ### Core Analysis Engine
-- **Gemini 2.5 Pro Integration**: Uses Google's latest language model for qualitative analysis
-- **GPT-4o Integration**: Uses OpenAI's latest language model for qualitative analysis at the time of experimentation 
+- **Multi-LLM Support**: 
+  - **Direct APIs**: Gemini 2.5 Pro, Claude 3.5 Sonnet, Azure GPT-4o, GPT-4o, Groq Llama, DeepSeek Chat
+  - **OpenRouter**: Claude, Llama 3.2 90B, DeepSeek R1 (unified API for multiple models)
+- **Configurable Analysis Parameters**:
+  - **Seeds**: 1-6 customizable seeds for reproducible variation
+  - **Temperature**: 0.0-2.0 (deterministic to creative)
+  - **Custom Prompts**: Full prompt control with variable substitution
+- **Dual Reliability Metrics**: 
+  - **Cohen's Kappa (κ)**: Inter-rater reliability measurement
+  - **Cosine Similarity**: Semantic embedding-based comparison
 - **Semantic Similarity**: Implements Hugging Face's `all-MiniLM-L6-v2` model for reliability scoring
-- **Multi-Run Strategy**: Performs 6 independent analyses with different seeds for consistency validation
+- **Multi-Run Strategy**: Performs configurable independent analyses with different seeds
 - **Intelligent Chunking**: Automatically splits large texts while preserving semantic boundaries
 
 ### Reliability & Quality Assurance
-- **Inter-Run Consistency**: Calculates similarity scores between analysis runs
-- **Consensus Theme Identification**: Identifies themes that appear across multiple runs
+- **Dual Reliability Metrics**:
+  - **Cohen's Kappa (κ)**: Statistical measure of inter-rater agreement accounting for chance
+  - **Cosine Similarity**: Semantic comparison using transformer embeddings
+- **Consensus Theme Identification**: 
+  - Works with **both default and custom prompt structures**
+  - Automatically extracts themes from any JSON structure
+  - Identifies patterns across multiple runs
 - **Adaptive Thresholds**: Adjusts consensus requirements based on completed runs
 - **Graceful Degradation**: Works with partial results when some runs fail
+- **Kappa Interpretation**: Automatic classification (almost perfect, substantial, moderate, fair, slight, poor)
+
+### Supported LLM Providers
+
+#### Direct API Integration
+- **Google Gemini 2.5 Pro** - Latest multimodal model
+- **Anthropic Claude 3.5 Sonnet** - Advanced reasoning capabilities
+- **Azure OpenAI GPT-4o** - Enterprise-grade deployment
+- **OpenAI GPT-4o** - Latest GPT model
+- **Groq Llama 3 70B** - Fast inference
+- **DeepSeek Chat** - Competitive performance
+
+#### OpenRouter Integration
+- **Claude 3.5 Sonnet** - Unified API access
+- **Llama 3.2 90B Vision** - Larger parameter count
+- **DeepSeek R1** - Latest reasoning model
+- Single API key for multiple models
+- Cost-effective pricing
+
+### LLM Provider Comparison
+
+| Provider | Model | Best For | Speed | Cost | API Key Required |
+|----------|-------|----------|-------|------|------------------|
+| **Gemini 2.5 Pro** | Google | Balanced performance | Fast | Free tier | Google AI Studio |
+| **Claude 3.5 Sonnet** | Anthropic | Deep reasoning | Medium | Paid | Anthropic |
+| **Azure GPT-4o** | Microsoft | Enterprise | Fast | Paid | Azure Portal |
+| **GPT-4o** | OpenAI | General purpose | Fast | Paid | OpenAI |
+| **Llama 3 70B** | Groq | Fast inference | Very Fast | Free/Paid | Groq |
+| **DeepSeek Chat** | DeepSeek | Cost-effective | Fast | Cheap | DeepSeek |
+| **OpenRouter** | Multiple | Multi-model access | Varies | Cost-effective | OpenRouter |
 
 ### User Experience
+- **Modern UI**: Beautiful gradient design with glassmorphism, smooth animations
 - **Auto-Download**: Every completed run saves automatically to browser downloads
-- **Progress Tracking**: Real-time progress indicators and status updates
+- **Progress Tracking**: Real-time progress indicators with detailed status updates
 - **Resume Functionality**: Continue interrupted analyses from the last successful run
-- **Error Recovery**: Robust error handling with retry mechanisms
+- **Error Recovery**: Robust error handling with retry mechanisms and detailed logging
+- **Custom Prompts**: Full control over analysis with `{seed}` and `{text_chunk}` placeholders
+- **Flexible Configuration**: Adjustable seeds (1-6) and temperature (0.0-2.0)
 
+
+## 🎨 Custom Prompts
+
+### Variable Substitution
+The tool supports dynamic placeholders in custom prompts:
+
+- **`{seed}`** - Current run's seed value (e.g., 42, 123, 456)
+- **`{text_chunk}`** or **`{text}`** - Transcript content
+
+### Example Custom Prompt
+```
+Perform comprehensive thematic analysis on:
+
+{text_chunk}
+
+Analysis Parameters:
+- Run ID: {seed}
+- Focus: [Your specific research question]
+
+Return JSON with your custom structure...
+```
+
+### Supported Structures
+- **Default**: Pre-defined thematic analysis format
+- **Custom**: Any valid JSON structure - consensus themes automatically extracted
 
 ## Screenshots
 
@@ -217,8 +293,13 @@ const [extractorReady, setExtractorReady] = useState(false);
 ```typescript
 const MAX_RETRIES = 3;
 const RETRY_DELAY_BASE = 1500;
-const TOTAL_RUNS = 6;
-const SEEDS = [42, 123, 456, 789, 1011, 1213];
+const TOTAL_RUNS = seeds.length; // Dynamic: 1-6 runs
+const SEEDS = [42, 123, 456, 789, 1011, 1213]; // User-configurable
+
+// User-adjustable parameters
+const [seeds, setSeeds] = useState([42, 123, 456, 789, 1011, 1213]);
+const [temperature, setTemperature] = useState(0.7);
+const [customPrompt, setCustomPrompt] = useState('');
 ```
 
 ### API Integration Details
@@ -264,70 +345,133 @@ https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateC
 
 ## 📊 Reliability Metrics
 
-### Inter-Run Consistency Scoring
-- **Method**: Semantic similarity using transformer embeddings
+### 1. Cohen's Kappa (κ) - Inter-Rater Reliability
+- **Method**: Statistical measure accounting for chance agreement
+- **Range**: -1 to 1 (negative = worse than chance, 1 = perfect agreement)
+- **Interpretation**:
+  - **κ > 0.80**: Almost perfect agreement
+  - **κ 0.60-0.80**: Substantial agreement
+  - **κ 0.40-0.60**: Moderate agreement
+  - **κ 0.20-0.40**: Fair agreement
+  - **κ < 0.20**: Slight or poor agreement
+- **Application**: Measures consistency of theme identification across runs
+
+### 2. Cosine Similarity - Semantic Consistency
+- **Method**: Semantic similarity using transformer embeddings (all-MiniLM-L6-v2)
 - **Range**: 0-1 (0% = no similarity, 100% = identical themes)
 - **Interpretation**:
   - **High (>70%)**: Strong thematic convergence
   - **Moderate (50-70%)**: Reasonable consistency with variation
   - **Low (<50%)**: Considerable analytical divergence
+- **Application**: Evaluates semantic overlap of themes
 
-### Consensus Theme Identification
+### 3. Consensus Theme Identification
 - **Threshold**: Themes appearing in ≥50% of runs
 - **Ranking**: By consistency percentage
 - **Evidence**: Supporting quotes from all occurrences
 - **Adaptive**: Adjusts for partial data sets
+- **Structure Agnostic**: Works with default and custom prompt structures
 
 ## 🔧 Setup & Installation
 
 ### Prerequisites
 - Node.js 18+ 
-- pnpm package manager
-- Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- npm or pnpm package manager
+- API key from at least one provider (see below)
+
+### API Keys (Get from respective platforms)
+- **Gemini**: [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Claude**: [Anthropic Console](https://console.anthropic.com/)
+- **Azure OpenAI**: [Azure Portal](https://portal.azure.com)
+- **OpenAI**: [OpenAI Platform](https://platform.openai.com/api-keys)
+- **Groq**: [Groq Console](https://console.groq.com/keys)
+- **DeepSeek**: [DeepSeek Platform](https://platform.deepseek.com/api_keys)
+- **OpenRouter**: [OpenRouter](https://openrouter.ai/keys) (One key for Claude, Llama, DeepSeek)
 
 ### Installation
 ```bash
 # Clone repository
-git clone <repository-url>
-cd thematic-analysis-tool/something
+git clone https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool.git
+cd LLM-Thematic-Analysis-Tool
 
 # Install dependencies
+npm install
+# or
 pnpm install
 
 # Development server
+npm run dev
+# or
 pnpm dev
 
 # Production build
+npm run build
+# or
 pnpm build
 ```
 
 ### Environment Configuration
-```bash
-# Optional: Create .env.local
-GEMINI_API_KEY=your_api_key_here
-```
+API keys are entered directly in the UI - no environment variables needed.
+All processing happens client-side for maximum privacy.
 
 ## 🎨 UI/UX Features
 
 ### Design System
 - **Framework**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS with custom gradients
+- **Styling**: Tailwind CSS with modern gradients and glassmorphism
+- **Color Palette**: Blue-indigo-purple gradient scheme
 - **Icons**: Lucide React icon library
 - **Responsive**: Mobile-first design approach
+- **Animations**: Smooth transitions and micro-interactions (hover, scale, shadow)
 
 ### User Interface Components
-- **File Upload**: Drag-and-drop with validation
-- **Progress Tracking**: Real-time progress bars and status
-- **Results Display**: Interactive theme cards with evidence
-- **Export Options**: Multiple format downloads
-- **Error Handling**: User-friendly error messages with recovery options
+- **Model Selection**: Dropdown with 9+ LLM options
+- **Configuration Panel**: 
+  - Temperature slider (0.0-2.0) with live preview
+  - Seed management (add/remove up to 6 seeds)
+  - Custom prompt editor with syntax help
+- **File Upload**: Gradient-bordered drag-and-drop with validation
+- **Progress Tracking**: Animated gradient progress bars with detailed status
+- **Results Display**: 
+  - Gradient metric cards (Cosine Similarity, Cohen's Kappa, Reliability)
+  - Interactive theme cards with hover effects
+  - Collapsible individual run data
+- **Export Options**: Multiple format downloads (JSON, CSV, TXT)
+- **Error Handling**: Detailed error messages with console logging for debugging
+
+## ⚡ Latest Improvements (v2.0)
+
+### New Features
+- ✅ **Cohen's Kappa** - Statistical inter-rater reliability metric
+- ✅ **Multi-LLM Support** - 9+ models (Gemini, Claude, GPT-4o, Llama, DeepSeek)
+- ✅ **OpenRouter Integration** - Unified API for multiple models
+- ✅ **Azure OpenAI** - Enterprise deployment support
+- ✅ **Dynamic Seeds** - Configurable 1-6 seeds with UI management
+- ✅ **Temperature Control** - Adjustable 0.0-2.0 with slider
+- ✅ **Custom Prompts** - Variable substitution (`{seed}`, `{text_chunk}`)
+- ✅ **Universal Consensus** - Works with any JSON structure
+- ✅ **Modern UI** - Gradient design with glassmorphism
+- ✅ **Enhanced Debugging** - Detailed console logging and error messages
+
+### Bug Fixes
+- 🐛 Fixed synthesis freezing with sampling and thread yielding
+- 🐛 Fixed "Run 0" bug with proper run number tracking
+- 🐛 Fixed export formats for custom prompt structures
+- 🐛 Improved error handling for all API providers
+- 🐛 Better CORS handling for OpenRouter
 
 ## 📈 Performance Optimizations
 
 ### Browser Caching
-- **Model Caching**: Hugging Face model cached after first download
+- **Model Caching**: Hugging Face model cached after first download (23MB)
 - **API Response**: Intelligent caching of analysis results
 - **File Processing**: Client-side text processing reduces server load
+
+### Performance Features
+- **UI Thread Yielding**: Prevents freezing during synthesis
+- **Sampling**: Optional comparison sampling for large custom structures
+- **Async Processing**: Non-blocking operations with progress updates
+- **Theme Limiting**: Caps embedding calculations to prevent memory issues
 
 ## 🔒 Security & Privacy
 
@@ -373,18 +517,26 @@ const nextConfig: NextConfig = {
 ## 📝 Usage Examples
 
 ### Basic Analysis Workflow
-1. **Upload**: Drag and drop a .txt file (Other files that you might need, propose a new PR or feature request in github issues) 
-2. **Configure**: Enter Gemini API key, Claude, or OpenAI key
-3. **Analyze**: Click "Start Analysis" 
-4. **Monitor**: Watch real-time progress
-5. **Review**: Examine consensus themes
-6. **Export**: Download results in multiple formats
+1. **Select Model**: Choose from Gemini, Claude, GPT-4o, Llama, DeepSeek, or OpenRouter
+2. **Enter API Key**: Input your API key for the selected provider
+3. **Configure Analysis** (Optional):
+   - Adjust **temperature** (0.0 = deterministic, 2.0 = creative)
+   - Modify **seeds** (add/remove for different run variations)
+   - Write **custom prompt** using `{seed}` and `{text_chunk}` placeholders
+4. **Upload**: Drag and drop a .txt file
+5. **Analyze**: Click "Start Analysis" 
+6. **Monitor**: Watch real-time animated progress with detailed status
+7. **Review**: Examine reliability metrics (Kappa + Cosine) and consensus themes
+8. **Export**: Download results in JSON, CSV, or formatted text
 
 ### Advanced Features
-- **Resume**: Continue interrupted analyses
+- **Multi-LLM Comparison**: Run same text across different models and compare results
+- **Custom Prompts**: Full control over analysis structure and output format
+- **Dynamic Seeds**: Configure 1-6 seeds for reproducibility testing
+- **Temperature Control**: Fine-tune creativity vs. consistency
+- **Resume**: Continue interrupted analyses from last successful run
 - **Partial Results**: Review completed runs during processing
-- **Custom Seeds**: Modify SEEDS array for different variations
-- **Chunk Size**: Adjust maxChunkSize for different file types
+- **Custom Structures**: Automatic consensus extraction from any JSON format
 
 ## 🔬 Research Applications
 
@@ -408,11 +560,36 @@ const nextConfig: NextConfig = {
 - **Documentation**: Update README for new features
 - **Performance**: Monitor bundle size and runtime performance
 
-### Feature Requests
-- **Reliability Improvements**: Enhanced similarity algorithms in separate files with comparison of outputs 
-- **Export Formats**: Additional output formats (CSV, XML) - Document why is needed?
-- **UI Enhancements**: Improved visualization and interaction
-- **API Integration**: Support for additional language models
+### Feature Requests & Roadmap
+
+#### Completed Features ✅
+- ✅ Multiple LLM support (9+ models)
+- ✅ Cohen's Kappa reliability metric
+- ✅ Dynamic seed configuration
+- ✅ Temperature control
+- ✅ Custom prompt support
+- ✅ Modern UI redesign
+- ✅ CSV export format
+- ✅ Consensus themes for custom structures
+
+#### Planned Features 🚀
+- **Additional Models**: Mistral, Cohere, AI21
+- **Advanced Analytics**: 
+  - Fleiss' Kappa for multi-rater agreement
+  - Krippendorff's Alpha for ordinal data
+  - Inter-coder reliability visualization
+- **Export Enhancements**: 
+  - Excel format with multiple sheets
+  - XML for qualitative analysis software (NVivo, MAXQDA)
+  - Direct export to visualization tools
+- **UI Improvements**:
+  - Interactive theme visualization graphs
+  - Side-by-side LLM comparison view
+  - Real-time collaborative analysis
+- **Research Tools**:
+  - Batch processing multiple files
+  - Citation extraction and management
+  - Integration with reference managers
 
 
 ## Citing ThemeLLM
