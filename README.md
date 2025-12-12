@@ -12,9 +12,7 @@ Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provi
 - **Configurable temperature** - Control randomness/creativity (0.0-2.0)
 - **Custom prompts** - Full control with `{seed}` and `{text_chunk}` placeholders
 - **Consensus themes** - Works with both default and custom prompt structures
-- **Auto-save functionality** - Each run downloads immediately to prevent data loss
 - **Resume capability** - Continue from interrupted analyses
-- **Modern UI** - Beautiful gradient design with glassmorphism effects
 - **Comprehensive export options** - JSON, CSV, and formatted text reports
 
 ## 🚀 Key Features
@@ -79,8 +77,6 @@ Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provi
 - **Modern UI**: Beautiful gradient design with glassmorphism, smooth animations
 - **Auto-Download**: Every completed run saves automatically to browser downloads
 - **Progress Tracking**: Real-time progress indicators with detailed status updates
-- **Resume Functionality**: Continue interrupted analyses from the last successful run
-- **Error Recovery**: Robust error handling with retry mechanisms and detailed logging
 - **Custom Prompts**: Full control over analysis with `{seed}` and `{text_chunk}` placeholders
 - **Flexible Configuration**: Adjustable seeds (1-6) and temperature (0.0-2.0)
 
@@ -416,7 +412,7 @@ All processing happens client-side for maximum privacy.
 
 ## 🎨 UI/UX Features
 
-### Design System
+### Design System in NextJS (Frontend) 
 - **Framework**: Next.js 15 with App Router
 - **Styling**: Tailwind CSS with modern gradients and glassmorphism
 - **Color Palette**: Blue-indigo-purple gradient scheme
@@ -459,19 +455,6 @@ All processing happens client-side for maximum privacy.
 - 🐛 Fixed export formats for custom prompt structures
 - 🐛 Improved error handling for all API providers
 - 🐛 Better CORS handling for OpenRouter
-
-## 📈 Performance Optimizations
-
-### Browser Caching
-- **Model Caching**: Hugging Face model cached after first download (23MB)
-- **API Response**: Intelligent caching of analysis results
-- **File Processing**: Client-side text processing reduces server load
-
-### Performance Features
-- **UI Thread Yielding**: Prevents freezing during synthesis
-- **Sampling**: Optional comparison sampling for large custom structures
-- **Async Processing**: Non-blocking operations with progress updates
-- **Theme Limiting**: Caps embedding calculations to prevent memory issues
 
 ## 🔒 Security & Privacy
 
@@ -557,8 +540,6 @@ const nextConfig: NextConfig = {
 ### Development Guidelines
 - **Code Style**: Follow existing patterns and conventions
 - **Testing**: Test with various file sizes and formats
-- **Documentation**: Update README for new features
-- **Performance**: Monitor bundle size and runtime performance
 
 ### Feature Requests & Roadmap
 
@@ -568,28 +549,24 @@ const nextConfig: NextConfig = {
 - ✅ Dynamic seed configuration
 - ✅ Temperature control
 - ✅ Custom prompt support
-- ✅ Modern UI redesign
 - ✅ CSV export format
 - ✅ Consensus themes for custom structures
 
 #### Planned Features 🚀
-- **Additional Models**: Mistral, Cohere, AI21
+- **Additional Models**: Mistral, Cohere, AI21, Olmo (Coming soon)
 - **Advanced Analytics**: 
   - Fleiss' Kappa for multi-rater agreement
   - Krippendorff's Alpha for ordinal data
   - Inter-coder reliability visualization
-- **Export Enhancements**: 
-  - Excel format with multiple sheets
-  - XML for qualitative analysis software (NVivo, MAXQDA)
-  - Direct export to visualization tools
+    
 - **UI Improvements**:
   - Interactive theme visualization graphs
   - Side-by-side LLM comparison view
   - Real-time collaborative analysis
 - **Research Tools**:
   - Batch processing multiple files
-  - Citation extraction and management
-  - Integration with reference managers
+  - Citation extraction and management (With Bibby AI at trybibby.com)
+  - Integration with reference managers with zotero or Bibby 
 
 
 ## Citing ThemeLLM
@@ -610,7 +587,7 @@ Qualitative Research},
 
 ## 📄 License
 
-This project is developed by Aza Lab for qualitative research applications. Please contact Aza Allsop and Nilesh Arnaiya for licensing and usage permissions.
+This project is developed by Aza Lab at Yale for qualitative research applications. Please contact Dr. Aza Allsop and Researcher Nilesh Arnaiya for commercial academic licensing and usage permissions.
 
 ## 🆘 Support
 
@@ -618,7 +595,6 @@ For technical support, feature requests, or research collaboration:
 - **Contact**: Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale university
 - **Issues**: Report bugs and request features via GitHub issues
 - **Documentation**: Refer to inline code comments for implementation details
-
 ---
 
-*Built with ❤️ for the qualitative research community*
+*Built with ❤️ by Nilesh for the qualitative research community*
