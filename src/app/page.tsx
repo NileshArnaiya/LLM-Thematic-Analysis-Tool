@@ -17,7 +17,7 @@ const Home = () => {
   // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
-  
+
   const [apiKey, setApiKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('azure-gpt-4o');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -42,12 +42,12 @@ const Home = () => {
   // ============================================================================
   // CONFIGURATION
   // ============================================================================
-  
+
   const MAX_RETRIES = 3;
   const RETRY_DELAY_BASE = 1500;
   const TOTAL_RUNS = seeds.length;
   const SEEDS = seeds;
-  
+
   // Model configurations
   const MODELS: any = {
     'gemini-2.5-pro': {
@@ -110,7 +110,7 @@ const Home = () => {
       model: 'deepseek/deepseek-r1'
     }
   };
-  
+
   // Default prompt template
   const DEFAULT_PROMPT = `Conduct a qualitative thematic analysis. Identify major emotional, psychological, and conceptual themes.
 
@@ -163,14 +163,14 @@ Return valid JSON in this exact structure:
         // We'll handle the fallback in the similarity function
       }
     };
-    
+
     initializeExtractor();
   }, []); // Empty dependency a
 
   // ============================================================================
   // UTILITY FUNCTIONS
   // ============================================================================
-  
+
   /**
    * Auto-download helper - creates and triggers file download
    * 
@@ -215,7 +215,7 @@ Return valid JSON in this exact structure:
       patterns: runResult.emotionalPatterns,
       insights: runResult.keyInsights
     };
-    
+
     const filename = `run_${runNumber}_${fileName.replace('.txt', '')}_${timestamp}.json`;
     downloadFile(JSON.stringify(runData, null, 2), filename);
     console.log(`✓ Auto-saved: ${filename}`);
@@ -246,7 +246,7 @@ Return valid JSON in this exact structure:
   const withRetry = (fn: any, maxRetries: number = MAX_RETRIES) => {
     return async (...args: any[]) => {
       let lastError;
-      
+
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           const result = await fn(...args);
@@ -254,21 +254,21 @@ Return valid JSON in this exact structure:
             console.log(`✓ Success after ${attempt} ${attempt === 1 ? 'retry' : 'retries'}`);
           }
           return result;
-          
+
         } catch (error) {
           lastError = error;
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error(`✗ Attempt ${attempt + 1}/${maxRetries + 1} failed:`, errorMessage);
-          
+
           if (attempt === maxRetries) {
             throw new Error(`Failed after ${maxRetries + 1} attempts: ${errorMessage}`);
           }
-          
+
           setCurrentStep(`Retrying after error (${attempt + 1}/${maxRetries})...`);
           await exponentialBackoff(attempt);
         }
       }
-      
+
       throw lastError;
     };
   };
@@ -276,7 +276,7 @@ Return valid JSON in this exact structure:
   // ============================================================================
   // TEXT PREPROCESSING
   // ============================================================================
-  
+
   /**
    * Clean transcript text by removing metadata and artifacts
    * 
@@ -297,19 +297,19 @@ Return valid JSON in this exact structure:
    */
   const preprocessText = (text: string) => {
     setCurrentStep('Cleaning text...');
-    
+
     const originalLength = text.length;
     const originalLines = text.split('\n').length;
-    
+
     // Remove transcription service attribution
     let cleaned = text.replace(/Transcribed by https?:\/\/otter\.ai/gi, '');
-    
+
     // Remove document boundary markers
     cleaned = cleaned.replace(/---\s*(End|Start)\s+of\s+content\s+from:\s+[^\n]+\s*---/gi, '');
-    
+
     // Normalize multiple blank lines to double newline
     cleaned = cleaned.replace(/\n\s*\n\s*\n+/g, '\n\n');
-    
+
     // Filter out timestamp lines and very short lines
     cleaned = cleaned.split('\n')
       .filter(line => {
@@ -321,13 +321,13 @@ Return valid JSON in this exact structure:
         return true;
       })
       .join('\n');
-    
+
     cleaned = cleaned.trim();
-    
+
     const cleanedLength = cleaned.length;
     const cleanedLines = cleaned.split('\n').length;
     const reductionPercent = ((1 - cleanedLength / originalLength) * 100).toFixed(1);
-    
+
     setCleaningStats({
       originalLength,
       originalLines,
@@ -336,7 +336,7 @@ Return valid JSON in this exact structure:
       reductionPercent,
       removedChars: originalLength - cleanedLength
     });
-    
+
     return cleaned;
   };
 
@@ -359,21 +359,21 @@ Return valid JSON in this exact structure:
    */
   const chunkText = (text: string, maxChunkSize: number = 30000) => {
     setCurrentStep('Chunking text for analysis...');
-    
+
     // If text fits in one chunk, return as-is
     if (text.length <= maxChunkSize) {
       return [text];
     }
-    
+
     const chunks = [];
     const paragraphs = text.split('\n\n');
     let currentChunk = '';
-    
+
     for (const paragraph of paragraphs) {
       // Handle oversized paragraphs - split by sentence
       if (paragraph.length > maxChunkSize) {
         const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
-        
+
         for (const sentence of sentences) {
           if ((currentChunk + sentence).length > maxChunkSize && currentChunk) {
             chunks.push(currentChunk.trim());
@@ -392,12 +392,12 @@ Return valid JSON in this exact structure:
         }
       }
     }
-    
+
     // Don't forget the last chunk
     if (currentChunk) {
       chunks.push(currentChunk.trim());
     }
-    
+
     console.log(`📄 Text split into ${chunks.length} chunks`);
     return chunks;
   };
@@ -405,7 +405,7 @@ Return valid JSON in this exact structure:
   // ============================================================================
   // MULTI-MODEL API INTEGRATION
   // ============================================================================
-  
+
   /**
    * Call AI API (supports multiple providers) with comprehensive error handling
    * 
@@ -428,16 +428,16 @@ Return valid JSON in this exact structure:
     if (!modelConfig) {
       throw new Error(`Unsupported model: ${selectedModel}`);
     }
-    
-    const contextPrefix = isChunked 
+
+    const contextPrefix = isChunked
       ? `This is chunk ${chunkIndex + 1} of ${totalChunks}. Analyze only this section.`
       : 'Analyze the complete text below.';
-    
+
     let userPrompt = customPrompt || DEFAULT_PROMPT;
-    
+
     // Replace seed placeholder with actual seed value
     userPrompt = userPrompt.replace(/{seed}/g, String(seed));
-    
+
     // Check if user prompt contains text placeholders, if so replace them
     // Otherwise append text at the end (default behavior)
     let fullPrompt;
@@ -452,7 +452,7 @@ Return valid JSON in this exact structure:
     let requestBody: any;
     let headers: any = { 'Content-Type': 'application/json' };
     let API_URL = '';
-    
+
     // Configure request based on provider
     if (modelConfig.provider === 'google') {
       API_URL = modelConfig.endpoint(apiKey);
@@ -529,7 +529,7 @@ Return valid JSON in this exact structure:
         max_tokens: 8192
       };
     }
-    
+
     try {
       console.log(`Calling ${modelConfig.provider} API:`, API_URL);
       if (modelConfig.provider === 'openrouter') {
@@ -540,18 +540,18 @@ Return valid JSON in this exact structure:
           headers: { ...headers, Authorization: 'Bearer ***' }
         });
       }
-      
+
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody)
       };
-      
+
       // Add CORS mode for OpenRouter to handle cross-origin requests
       if (modelConfig.provider === 'openrouter') {
         fetchOptions.mode = 'cors';
       }
-      
+
       response = await fetch(API_URL, fetchOptions);
       console.log(`${modelConfig.provider} response status:`, response.status);
     } catch (fetchError) {
@@ -568,12 +568,12 @@ Return valid JSON in this exact structure:
     // Handle HTTP errors with specific guidance
     if (!response.ok) {
       let errorMessage = response.statusText;
-      
+
       try {
         const errorData = await response.json();
         console.error('API Error Response:', errorData);
         errorMessage = errorData.error?.message || errorData.message || errorData.error || errorMessage;
-        
+
         if (response.status === 429) {
           throw new Error(`Rate limit exceeded. Wait and retry. (${errorMessage})`);
         } else if (response.status === 401 || response.status === 403) {
@@ -587,13 +587,13 @@ Return valid JSON in this exact structure:
         // If error response isn't JSON, use status text
         console.error('Could not parse error response:', jsonError);
       }
-      
+
       throw new Error(`API error (${response.status}): ${errorMessage}`);
     }
 
     const data = await response.json();
     let textResponse = '';
-    
+
     // Extract response based on provider
     if (modelConfig.provider === 'google') {
       textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -602,14 +602,14 @@ Return valid JSON in this exact structure:
     } else if (modelConfig.provider === 'azure' || modelConfig.provider === 'openai' || modelConfig.provider === 'groq' || modelConfig.provider === 'deepseek' || modelConfig.provider === 'openrouter') {
       textResponse = data.choices?.[0]?.message?.content || '';
     }
-    
+
     if (!textResponse) {
       throw new Error('No response from API');
     }
 
     // Robust JSON parsing - handle markdown code blocks
     let jsonStr = textResponse.trim();
-    
+
     // Remove markdown code fences more robustly
     if (jsonStr.startsWith('```')) {
       // Remove opening fence (```json or ```)
@@ -617,30 +617,30 @@ Return valid JSON in this exact structure:
       // Remove closing fence
       jsonStr = jsonStr.replace(/\n?```\s*$/, '');
     }
-    
+
     // Clean up any remaining whitespace
     jsonStr = jsonStr.trim();
-    
+
     try {
       const parsed = JSON.parse(jsonStr);
-      
+
       // Flexible validation - check if it's a non-empty object
       if (!parsed || typeof parsed !== 'object') {
         throw new Error('Response is not a valid JSON object');
       }
-      
+
       // Only validate default structure if using default prompt
       // Otherwise accept any valid JSON object
       const isDefaultPrompt = !customPrompt || customPrompt.trim() === '';
       if (isDefaultPrompt) {
-      if (!parsed.majorEmotionalThemes || !Array.isArray(parsed.majorEmotionalThemes)) {
+        if (!parsed.majorEmotionalThemes || !Array.isArray(parsed.majorEmotionalThemes)) {
           throw new Error('Invalid response structure: missing majorEmotionalThemes array');
-      }
-      if (!parsed.emotionalPatterns || typeof parsed.emotionalPatterns !== 'object') {
+        }
+        if (!parsed.emotionalPatterns || typeof parsed.emotionalPatterns !== 'object') {
           throw new Error('Invalid response structure: missing emotionalPatterns object');
         }
       }
-      
+
       return parsed;
     } catch (parseError) {
       console.error('Parse error:', textResponse);
@@ -655,7 +655,7 @@ Return valid JSON in this exact structure:
   // ============================================================================
   // MULTI-CHUNK ANALYSIS COORDINATION
   // ============================================================================
-  
+
   /**
    * Analyze text (single chunk or multiple chunks)
    * 
@@ -675,13 +675,13 @@ Return valid JSON in this exact structure:
    */
   const analyzeText = async (text, seed, runNumber) => {
     const chunks = chunkText(text);
-    
+
     // Single chunk - simple path
     if (chunks.length === 1) {
       setCurrentStep(`Run ${runNumber}: Single-pass analysis`);
       return await callAIAPIWithRetry(chunks[0], seed, false);
     }
-    
+
     // Multiple chunks - analyze each and merge
     const chunkResults = [];
     for (let i = 0; i < chunks.length; i++) {
@@ -689,7 +689,7 @@ Return valid JSON in this exact structure:
       const result = await callAIAPIWithRetry(chunks[i], seed, true, i, chunks.length);
       chunkResults.push(result);
     }
-    
+
     setCurrentStep(`Run ${runNumber}: Merging chunk analyses`);
     return mergeChunkAnalyses(chunkResults);
   };
@@ -707,57 +707,57 @@ Return valid JSON in this exact structure:
   const mergeChunkAnalyses = (chunkResults) => {
     // Check if this is the default prompt structure
     const isDefaultStructure = chunkResults[0]?.majorEmotionalThemes && chunkResults[0]?.emotionalPatterns;
-    
+
     if (isDefaultStructure) {
       // Original merging logic for default prompt
-    const themeMap = new Map();
-    const allInsights = [];
-    let totalSentiment = 0;
-    const toneFrequency = {};
-    
-    chunkResults.forEach(result => {
-      // Merge themes
-      result.majorEmotionalThemes.forEach(theme => {
-        const key = theme.theme;
-        if (themeMap.has(key)) {
-          const existing = themeMap.get(key);
-          existing.frequency += theme.frequency;
-          existing.evidence = [...new Set([...existing.evidence, ...theme.evidence])];
-        } else {
-          themeMap.set(key, { ...theme });
-        }
-      });
-      
-      // Collect insights
+      const themeMap = new Map();
+      const allInsights = [];
+      let totalSentiment = 0;
+      const toneFrequency = {};
+
+      chunkResults.forEach(result => {
+        // Merge themes
+        result.majorEmotionalThemes.forEach(theme => {
+          const key = theme.theme;
+          if (themeMap.has(key)) {
+            const existing = themeMap.get(key);
+            existing.frequency += theme.frequency;
+            existing.evidence = [...new Set([...existing.evidence, ...theme.evidence])];
+          } else {
+            themeMap.set(key, { ...theme });
+          }
+        });
+
+        // Collect insights
         if (result.keyInsights) allInsights.push(...result.keyInsights);
-      
-      // Aggregate sentiment
-      totalSentiment += result.emotionalPatterns.overallSentiment;
-      
-      // Count tone occurrences
-      const tone = result.emotionalPatterns.dominantTone;
-      toneFrequency[tone] = (toneFrequency[tone] || 0) + 1;
-    });
-    
-    // Find most common tone
-    const dominantTone = Object.entries(toneFrequency)
-      .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))[0][0];
-    
-    return {
-      majorEmotionalThemes: Array.from(themeMap.values())
-        .sort((a, b) => b.frequency - a.frequency),
-      emotionalPatterns: {
-        dominantTone,
-        overallSentiment: totalSentiment / chunkResults.length,
-        toneVariety: Object.keys(toneFrequency).length
-      },
-      keyInsights: [...new Set(allInsights)]
-    };
+
+        // Aggregate sentiment
+        totalSentiment += result.emotionalPatterns.overallSentiment;
+
+        // Count tone occurrences
+        const tone = result.emotionalPatterns.dominantTone;
+        toneFrequency[tone] = (toneFrequency[tone] || 0) + 1;
+      });
+
+      // Find most common tone
+      const dominantTone = Object.entries(toneFrequency)
+        .sort((a: any, b: any) => (b[1] as number) - (a[1] as number))[0][0];
+
+      return {
+        majorEmotionalThemes: Array.from(themeMap.values())
+          .sort((a, b) => b.frequency - a.frequency),
+        emotionalPatterns: {
+          dominantTone,
+          overallSentiment: totalSentiment / chunkResults.length,
+          toneVariety: Object.keys(toneFrequency).length
+        },
+        keyInsights: [...new Set(allInsights)]
+      };
     } else {
       // Generic merging for custom prompts
       // Combine all arrays and merge objects
       const merged: any = {};
-      
+
       chunkResults.forEach(result => {
         Object.keys(result).forEach(key => {
           if (Array.isArray(result[key])) {
@@ -778,7 +778,7 @@ Return valid JSON in this exact structure:
           }
         });
       });
-      
+
       return merged;
     }
   };
@@ -786,7 +786,7 @@ Return valid JSON in this exact structure:
   // ============================================================================
   // RELIABILITY ANALYSIS
   // ============================================================================
-  
+
   /**
    * Calculate similarity between two runs (Jaccard similarity of themes)
    * 
@@ -798,148 +798,148 @@ Return valid JSON in this exact structure:
    * @param {Object} run2 - Second analysis run
    * @returns {number} - Similarity score (0-1)
    */
-/**
- * Calculate semantic similarity between two runs using embeddings
- * 
- * This is the heart of the improvement. Instead of just comparing whether
- * theme names match exactly (Jaccard), we compare the MEANING of the themes.
- * 
- * How it works:
- * 1. Extract all theme text from both runs
- * 2. Generate semantic embeddings (vectors) for each theme
- * 3. Pool (average) the embeddings to get one vector per run
- * 4. Calculate cosine similarity between the two run vectors
- * 
- * Why this is better:
- * - Recognizes "adventure and exploration" ≈ "thrill of discovering new places"
- * - Captures semantic relationships that exact text matching misses
- * - Gives more accurate reliability scores for your analysis
- * 
- * @param {Object} run1 - First analysis run
- * @param {Object} run2 - Second analysis run
- * @returns {number} - Similarity score (0-1)
- */
-const calculateSimilarity = async (run1, run2) => {
-  // Check if we're working with default or custom structure
-  const isDefaultStructure = run1?.majorEmotionalThemes && run2?.majorEmotionalThemes;
-  
-  // For custom structures, use lightweight string comparison to avoid freezing
-  if (!isDefaultStructure) {
-    console.log('Using lightweight similarity for custom structure');
-    const str1 = JSON.stringify(run1);
-    const str2 = JSON.stringify(run2);
-    
-    // Simple character-level similarity
-    if (str1 === str2) return 1;
-    
-    // Calculate approximate similarity based on shared substrings
-    const len1 = str1.length;
-    const len2 = str2.length;
-    const maxLen = Math.max(len1, len2);
-    const minLen = Math.min(len1, len2);
-    
-    // Basic heuristic: if lengths are very different, similarity is lower
-    return minLen / maxLen;
-  }
-  
-  // If the embedding model isn't available, fall back to Jaccard similarity
-  if (!extractorRef.current || !extractorReady) {
-    console.log('Using fallback similarity (exact match)');
-    const themes1 = new Set(run1.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
-    const themes2 = new Set(run2.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
-    const intersection = new Set([...themes1].filter(x => themes2.has(x)));
-    const union = new Set([...themes1, ...themes2]);
-    return union.size > 0 ? intersection.size / union.size : 0;
-  }
+  /**
+   * Calculate semantic similarity between two runs using embeddings
+   * 
+   * This is the heart of the improvement. Instead of just comparing whether
+   * theme names match exactly (Jaccard), we compare the MEANING of the themes.
+   * 
+   * How it works:
+   * 1. Extract all theme text from both runs
+   * 2. Generate semantic embeddings (vectors) for each theme
+   * 3. Pool (average) the embeddings to get one vector per run
+   * 4. Calculate cosine similarity between the two run vectors
+   * 
+   * Why this is better:
+   * - Recognizes "adventure and exploration" ≈ "thrill of discovering new places"
+   * - Captures semantic relationships that exact text matching misses
+   * - Gives more accurate reliability scores for your analysis
+   * 
+   * @param {Object} run1 - First analysis run
+   * @param {Object} run2 - Second analysis run
+   * @returns {number} - Similarity score (0-1)
+   */
+  const calculateSimilarity = async (run1, run2) => {
+    // Check if we're working with default or custom structure
+    const isDefaultStructure = run1?.majorEmotionalThemes && run2?.majorEmotionalThemes;
 
-  try {
-    // Extract just the theme text (not the whole object) from each run
-    const themes1 = run1.majorEmotionalThemes.map(t => t.theme);
-    const themes2 = run2.majorEmotionalThemes.map(t => t.theme);
+    // For custom structures, use lightweight string comparison to avoid freezing
+    if (!isDefaultStructure) {
+      console.log('Using lightweight similarity for custom structure');
+      const str1 = JSON.stringify(run1);
+      const str2 = JSON.stringify(run2);
 
-    // Handle edge case: if either run has no themes, return 0 similarity
-    if (themes1.length === 0 || themes2.length === 0) {
-      return 0;
+      // Simple character-level similarity
+      if (str1 === str2) return 1;
+
+      // Calculate approximate similarity based on shared substrings
+      const len1 = str1.length;
+      const len2 = str2.length;
+      const maxLen = Math.max(len1, len2);
+      const minLen = Math.min(len1, len2);
+
+      // Basic heuristic: if lengths are very different, similarity is lower
+      return minLen / maxLen;
     }
 
-    // Limit number of themes to prevent UI freezing (max 10 themes per run)
-    const limitedThemes1 = themes1.slice(0, 10);
-    const limitedThemes2 = themes2.slice(0, 10);
+    // If the embedding model isn't available, fall back to Jaccard similarity
+    if (!extractorRef.current || !extractorReady) {
+      console.log('Using fallback similarity (exact match)');
+      const themes1 = new Set(run1.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
+      const themes2 = new Set(run2.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
+      const intersection = new Set([...themes1].filter(x => themes2.has(x)));
+      const union = new Set([...themes1, ...themes2]);
+      return union.size > 0 ? intersection.size / union.size : 0;
+    }
 
-    // Generate embeddings for all themes in both runs
-    // The model converts each text string into a 384-dimensional vector
-    // that captures its semantic meaning
-    const embeddings1 = await extractorRef.current(limitedThemes1, { 
-      pooling: 'mean',  // Average across tokens in each theme
-      normalize: true   // Normalize vectors to unit length (important for cosine similarity)
-    });
-    
-    const embeddings2 = await extractorRef.current(limitedThemes2, { 
-      pooling: 'mean', 
-      normalize: true 
-    });
+    try {
+      // Extract just the theme text (not the whole object) from each run
+      const themes1 = run1.majorEmotionalThemes.map(t => t.theme);
+      const themes2 = run2.majorEmotionalThemes.map(t => t.theme);
 
-    // Each run might have multiple themes, so we need to combine them into
-    // a single representative vector. We do this by averaging all theme vectors.
-    // This gives us one vector that represents the "overall semantic content"
-    // of all themes in that run.
-    
-    // embeddings1.data is a flat array, so we need to reshape it
-    const numThemes1 = limitedThemes1.length;
-    const embeddingDim = embeddings1.data.length / numThemes1;
-    
-    const numThemes2 = limitedThemes2.length;
-    
-    // Pool (average) all theme embeddings for run 1
-    const pooledVector1 = new Array(embeddingDim).fill(0);
-    for (let i = 0; i < numThemes1; i++) {
-      for (let j = 0; j < embeddingDim; j++) {
-        pooledVector1[j] += embeddings1.data[i * embeddingDim + j];
+      // Handle edge case: if either run has no themes, return 0 similarity
+      if (themes1.length === 0 || themes2.length === 0) {
+        return 0;
       }
-    }
-    // Divide by count to get average
-    for (let j = 0; j < embeddingDim; j++) {
-      pooledVector1[j] /= numThemes1;
-    }
-    
-    // Pool (average) all theme embeddings for run 2
-    const pooledVector2 = new Array(embeddingDim).fill(0);
-    for (let i = 0; i < numThemes2; i++) {
-      for (let j = 0; j < embeddingDim; j++) {
-        pooledVector2[j] += embeddings2.data[i * embeddingDim + j];
-      }
-    }
-    // Divide by count to get average
-    for (let j = 0; j < embeddingDim; j++) {
-      pooledVector2[j] /= numThemes2;
-    }
 
-    // Now calculate cosine similarity between the two pooled vectors
-    // This is the exact same math from your original cosine similarity code
-    const dotProduct = pooledVector1.reduce((sum, a, i) => sum + a * pooledVector2[i], 0);
-    const magnitudeA = Math.sqrt(pooledVector1.reduce((sum, a) => sum + a * a, 0));
-    const magnitudeB = Math.sqrt(pooledVector2.reduce((sum, b) => sum + b * b, 0));
-    
-    if (magnitudeA === 0 || magnitudeB === 0) {
-      return 0;
+      // Limit number of themes to prevent UI freezing (max 10 themes per run)
+      const limitedThemes1 = themes1.slice(0, 10);
+      const limitedThemes2 = themes2.slice(0, 10);
+
+      // Generate embeddings for all themes in both runs
+      // The model converts each text string into a 384-dimensional vector
+      // that captures its semantic meaning
+      const embeddings1 = await extractorRef.current(limitedThemes1, {
+        pooling: 'mean',  // Average across tokens in each theme
+        normalize: true   // Normalize vectors to unit length (important for cosine similarity)
+      });
+
+      const embeddings2 = await extractorRef.current(limitedThemes2, {
+        pooling: 'mean',
+        normalize: true
+      });
+
+      // Each run might have multiple themes, so we need to combine them into
+      // a single representative vector. We do this by averaging all theme vectors.
+      // This gives us one vector that represents the "overall semantic content"
+      // of all themes in that run.
+
+      // embeddings1.data is a flat array, so we need to reshape it
+      const numThemes1 = limitedThemes1.length;
+      const embeddingDim = embeddings1.data.length / numThemes1;
+
+      const numThemes2 = limitedThemes2.length;
+
+      // Pool (average) all theme embeddings for run 1
+      const pooledVector1 = new Array(embeddingDim).fill(0);
+      for (let i = 0; i < numThemes1; i++) {
+        for (let j = 0; j < embeddingDim; j++) {
+          pooledVector1[j] += embeddings1.data[i * embeddingDim + j];
+        }
+      }
+      // Divide by count to get average
+      for (let j = 0; j < embeddingDim; j++) {
+        pooledVector1[j] /= numThemes1;
+      }
+
+      // Pool (average) all theme embeddings for run 2
+      const pooledVector2 = new Array(embeddingDim).fill(0);
+      for (let i = 0; i < numThemes2; i++) {
+        for (let j = 0; j < embeddingDim; j++) {
+          pooledVector2[j] += embeddings2.data[i * embeddingDim + j];
+        }
+      }
+      // Divide by count to get average
+      for (let j = 0; j < embeddingDim; j++) {
+        pooledVector2[j] /= numThemes2;
+      }
+
+      // Now calculate cosine similarity between the two pooled vectors
+      // This is the exact same math from your original cosine similarity code
+      const dotProduct = pooledVector1.reduce((sum, a, i) => sum + a * pooledVector2[i], 0);
+      const magnitudeA = Math.sqrt(pooledVector1.reduce((sum, a) => sum + a * a, 0));
+      const magnitudeB = Math.sqrt(pooledVector2.reduce((sum, b) => sum + b * b, 0));
+
+      if (magnitudeA === 0 || magnitudeB === 0) {
+        return 0;
+      }
+
+      const similarity = dotProduct / (magnitudeA * magnitudeB);
+
+      // Cosine similarity ranges from -1 to 1, but for theme comparison
+      // we typically see values between 0 and 1. Clamp to ensure valid range.
+      return Math.max(0, Math.min(1, similarity));
+
+    } catch (error) {
+      console.error('Error calculating semantic similarity:', error);
+      // If embedding generation fails, fall back to simple comparison
+      const themes1 = new Set(run1.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
+      const themes2 = new Set(run2.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
+      const intersection = new Set([...themes1].filter(x => themes2.has(x)));
+      const union = new Set([...themes1, ...themes2]);
+      return union.size > 0 ? intersection.size / union.size : 0;
     }
-    
-    const similarity = dotProduct / (magnitudeA * magnitudeB);
-    
-    // Cosine similarity ranges from -1 to 1, but for theme comparison
-    // we typically see values between 0 and 1. Clamp to ensure valid range.
-    return Math.max(0, Math.min(1, similarity));
-    
-  } catch (error) {
-    console.error('Error calculating semantic similarity:', error);
-    // If embedding generation fails, fall back to simple comparison
-    const themes1 = new Set(run1.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
-    const themes2 = new Set(run2.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
-    const intersection = new Set([...themes1].filter(x => themes2.has(x)));
-    const union = new Set([...themes1, ...themes2]);
-    return union.size > 0 ? intersection.size / union.size : 0;
-  }
-};
+  };
 
   /**
    * Calculate Cohen's Kappa for inter-rater reliability
@@ -951,65 +951,65 @@ const calculateSimilarity = async (run1, run2) => {
    */
   const calculateCohenKappa = (run1, run2) => {
     const isDefaultStructure = run1?.majorEmotionalThemes && run2?.majorEmotionalThemes;
-    
+
     if (!isDefaultStructure) {
       // For custom structures, use simplified kappa based on JSON similarity
       const str1 = JSON.stringify(run1);
       const str2 = JSON.stringify(run2);
-      
+
       // Simple observed agreement
       const po = str1 === str2 ? 1.0 : (Math.min(str1.length, str2.length) / Math.max(str1.length, str2.length));
-      
+
       // Expected agreement by chance (estimate)
       const pe = 0.5;
-      
+
       const kappa = (po - pe) / (1 - pe);
       return Math.max(-1, Math.min(1, kappa));
     }
-    
+
     // For default structure: calculate based on theme agreement
     const themes1Set = new Set(run1.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
     const themes2Set = new Set(run2.majorEmotionalThemes.map(t => t.theme.toLowerCase()));
-    
+
     // Get all unique themes across both runs
     const allThemes = new Set([...themes1Set, ...themes2Set]);
-    
+
     if (allThemes.size === 0) return 0;
-    
+
     // Count agreements and disagreements
     let agreements = 0;
     let disagreements = 0;
-    
+
     allThemes.forEach(theme => {
       const in1 = themes1Set.has(theme);
       const in2 = themes2Set.has(theme);
-      
+
       if (in1 === in2) {
         agreements++;
       } else {
         disagreements++;
       }
     });
-    
+
     // Observed agreement
     const po = agreements / allThemes.size;
-    
+
     // Expected agreement by chance
     // P(both yes) + P(both no)
     const n1 = themes1Set.size;
     const n2 = themes2Set.size;
     const total = allThemes.size;
-    
+
     const pYes1 = n1 / total;
     const pNo1 = 1 - pYes1;
     const pYes2 = n2 / total;
     const pNo2 = 1 - pYes2;
-    
+
     const pe = (pYes1 * pYes2) + (pNo1 * pNo2);
-    
+
     // Cohen's Kappa
     const kappa = pe === 1 ? 1 : (po - pe) / (1 - pe);
-    
+
     return Math.max(-1, Math.min(1, kappa));
   };
 
@@ -1055,54 +1055,54 @@ const calculateSimilarity = async (run1, run2) => {
     const themeEvidence = {};
 
     if (isDefaultStructure) {
-    allRuns.forEach(run => {
-      run.majorEmotionalThemes.forEach(theme => {
-        const key = theme.theme;
-        themeFrequency[key] = (themeFrequency[key] || 0) + 1;
-        themeDescriptions[key] = theme.description;
-        themeSentiments[key] = theme.sentiment;
-        if (!themeEvidence[key]) themeEvidence[key] = [];
-        themeEvidence[key].push(...(theme.evidence || []));
+      allRuns.forEach(run => {
+        run.majorEmotionalThemes.forEach(theme => {
+          const key = theme.theme;
+          themeFrequency[key] = (themeFrequency[key] || 0) + 1;
+          themeDescriptions[key] = theme.description;
+          themeSentiments[key] = theme.sentiment;
+          if (!themeEvidence[key]) themeEvidence[key] = [];
+          themeEvidence[key].push(...(theme.evidence || []));
+        });
       });
-    });
     }
 
     // Calculate inter-run similarities
     let avgSimilarity = 0;
     let minSimilarity = 1;
     let maxSimilarity = 0;
-    
+
     // Calculate inter-run similarities and Cohen's Kappa with progress updates
     let avgKappa = 0;
     let minKappa = 1;
     let maxKappa = 0;
-    
-if (allRuns.length > 1) {
-    const similarities = [];
+
+    if (allRuns.length > 1) {
+      const similarities = [];
       const kappaScores = [];
       const totalPairs = (allRuns.length * (allRuns.length - 1)) / 2;
       let completedPairs = 0;
-      
+
       // For custom structures with many runs, sample comparisons to avoid freezing
       const shouldSample = !isDefaultStructure && totalPairs > 10;
       const samplesToTake = shouldSample ? Math.min(10, totalPairs) : totalPairs;
-      
+
       if (shouldSample) {
         console.log(`Sampling ${samplesToTake} of ${totalPairs} comparisons for performance`);
         // Sample evenly distributed pairs
         const step = Math.ceil(totalPairs / samplesToTake);
         let pairIndex = 0;
-        
-    for (let i = 0; i < allRuns.length; i++) {
-      for (let j = i + 1; j < allRuns.length; j++) {
+
+        for (let i = 0; i < allRuns.length; i++) {
+          for (let j = i + 1; j < allRuns.length; j++) {
             if (pairIndex % step === 0 && similarities.length < samplesToTake) {
               completedPairs++;
               setCurrentStep(`Calculating reliability metrics ${completedPairs}/${samplesToTake}...`);
               await new Promise(resolve => setTimeout(resolve, 0));
-              
-        const sim = await calculateSimilarity(allRuns[i], allRuns[j]);
+
+              const sim = await calculateSimilarity(allRuns[i], allRuns[j]);
               const kappa = calculateCohenKappa(allRuns[i], allRuns[j]);
-        similarities.push(sim);
+              similarities.push(sim);
               kappaScores.push(kappa);
             }
             pairIndex++;
@@ -1115,7 +1115,7 @@ if (allRuns.length > 1) {
             completedPairs++;
             setCurrentStep(`Calculating reliability metrics ${completedPairs}/${totalPairs}...`);
             await new Promise(resolve => setTimeout(resolve, 0));
-            
+
             const sim = await calculateSimilarity(allRuns[i], allRuns[j]);
             const kappa = calculateCohenKappa(allRuns[i], allRuns[j]);
             similarities.push(sim);
@@ -1123,15 +1123,15 @@ if (allRuns.length > 1) {
           }
         }
       }
-      
+
       avgSimilarity = similarities.length > 0 ? similarities.reduce((a, b) => a + b, 0) / similarities.length : 0.5;
       minSimilarity = similarities.length > 0 ? Math.min(...similarities) : 0;
       maxSimilarity = similarities.length > 0 ? Math.max(...similarities) : 1;
-      
+
       avgKappa = kappaScores.length > 0 ? kappaScores.reduce((a, b) => a + b, 0) / kappaScores.length : 0;
       minKappa = kappaScores.length > 0 ? Math.min(...kappaScores) : -1;
       maxKappa = kappaScores.length > 0 ? Math.max(...kappaScores) : 1;
-  }
+    }
     else {
       avgSimilarity = 1;
       minSimilarity = 1;
@@ -1143,27 +1143,27 @@ if (allRuns.length > 1) {
 
     // Build consensus themes (works for both default and custom structures)
     let consensusThemes = [];
-    
+
     if (isDefaultStructure) {
       // Default structure: use pre-aggregated theme data
-    const consensusThreshold = Math.max(1, Math.ceil(allRuns.length / 2));
-    
+      const consensusThreshold = Math.max(1, Math.ceil(allRuns.length / 2));
+
       consensusThemes = Object.entries(themeFrequency)
-      .filter(([_, freq]: any) => (freq as number) >= consensusThreshold)
-      .map(([theme, freq]: any) => ({
-        theme,
-        description: themeDescriptions[theme],
-        sentiment: themeSentiments[theme],
-        consistency: ((freq as number) / allRuns.length * 100).toFixed(1),
-        appearanceCount: freq,
-        evidence: [...new Set(themeEvidence[theme])].slice(0, 5)
-      }))
-      .sort((a, b) => parseFloat(b.consistency) - parseFloat(a.consistency));
+        .filter(([_, freq]: any) => (freq as number) >= consensusThreshold)
+        .map(([theme, freq]: any) => ({
+          theme,
+          description: themeDescriptions[theme],
+          sentiment: themeSentiments[theme],
+          consistency: ((freq as number) / allRuns.length * 100).toFixed(1),
+          appearanceCount: freq,
+          evidence: [...new Set(themeEvidence[theme])].slice(0, 5)
+        }))
+        .sort((a, b) => parseFloat(b.consistency) - parseFloat(a.consistency));
     } else {
       // Custom structure: extract themes from any arrays in the structure
       const extractThemesFromCustom = (run: any) => {
         const themes: any[] = [];
-        
+
         // Recursively find all arrays and extract their items
         const traverse = (obj: any, path: string = '') => {
           if (Array.isArray(obj)) {
@@ -1171,11 +1171,11 @@ if (allRuns.length > 1) {
             obj.forEach((item, idx) => {
               if (typeof item === 'object' && item !== null) {
                 // Get a title/name field if it exists
-                const titleField = item.theme_name || item.theme || item.title || item.name || 
-                                  item.aspect || item.experience_type || item.category || 
-                                  `${path} ${idx + 1}`;
+                const titleField = item.theme_name || item.theme || item.title || item.name ||
+                  item.aspect || item.experience_type || item.category ||
+                  `${path} ${idx + 1}`;
                 const descField = item.description || item.desc || JSON.stringify(item).slice(0, 200);
-                
+
                 themes.push({
                   category: path || 'General',
                   title: String(titleField),
@@ -1197,11 +1197,11 @@ if (allRuns.length > 1) {
             });
           }
         };
-        
+
         traverse(run);
         return themes;
       };
-      
+
       // Extract themes from all runs
       const allCustomThemes: any = {};
       allRuns.forEach(run => {
@@ -1223,7 +1223,7 @@ if (allRuns.length > 1) {
           }
         });
       });
-      
+
       // Build consensus from custom themes
       const consensusThreshold = Math.max(1, Math.ceil(allRuns.length / 2));
       consensusThemes = Object.values(allCustomThemes)
@@ -1241,7 +1241,7 @@ if (allRuns.length > 1) {
     // Generate interpretation and warnings
     let interpretation;
     let warning = null;
-    
+
     if (allRuns.length < 3) {
       interpretation = 'Limited';
       warning = `Only ${allRuns.length} run(s) completed. Results should be interpreted with caution.`;
@@ -1273,15 +1273,15 @@ if (allRuns.length > 1) {
   // ============================================================================
   // FILE HANDLING
   // ============================================================================
-  
+
   /**
    * Handle file upload with validation and stats calculation
    */
   const handleFileUpload = async (e) => {
     const uploadedFile = e.target.files[0];
-    
+
     if (!uploadedFile) return;
-    
+
     // Check file size (5MB limit)
     const maxSize = 5 * 1024 * 1024; // 5MB in bytes
     if (uploadedFile.size > maxSize) {
@@ -1291,14 +1291,14 @@ if (allRuns.length > 1) {
       setFileStats(null);
       return;
     }
-    
+
     if (uploadedFile.type === 'text/plain' || uploadedFile.name.endsWith('.txt')) {
       setFile(uploadedFile);
       setFileName(uploadedFile.name);
       setError('');
       setPartialResults(null);
       setCompletedRuns([]);
-      
+
       try {
         const text = await uploadedFile.text();
         const stats = {
@@ -1322,7 +1322,7 @@ if (allRuns.length > 1) {
   // ============================================================================
   // MAIN ANALYSIS ORCHESTRATION
   // ============================================================================
-  
+
   /**
    * Main analysis function - FIXED VERSION
    * 
@@ -1376,7 +1376,7 @@ if (allRuns.length > 1) {
         // Resume: start with existing runs
         runsToProcess = completedRuns;
       }
-      
+
       setStatus('analyzing');
       const startFrom = resumeFrom > 0 ? resumeFrom : 0;
 
@@ -1386,47 +1386,47 @@ if (allRuns.length > 1) {
         setCurrentRun(runNumber);
         setProgress((i / TOTAL_RUNS) * 100);
         setCurrentStep(`Analyzing run ${runNumber}/${TOTAL_RUNS}...`);
-        
+
         try {
           // FIXED: Pass runNumber directly (eliminates Run 0 bug)
           const analysis = await analyzeText(textToAnalyze, SEEDS[i], runNumber);
-          
+
           const runResult = {
             ...analysis,
             runNumber,
             seed: SEEDS[i]
           };
-          
+
           // Add to local array immediately
           runsToProcess.push(runResult);
-          
+
           // Update state for UI
           setCompletedRuns([...runsToProcess]);
-          
+
           // AUTO-SAVE: Download this run immediately
           autoSaveRun(runResult, runNumber);
-          
+
           setProgress(((i + 1) / TOTAL_RUNS) * 100);
-          
+
         } catch (runError) {
           console.error(`Run ${runNumber} failed:`, runError);
-          
+
           // If we have enough runs, show partial results
           if (runsToProcess.length >= 3) {
             setError(`Run ${runNumber} failed: ${runError.message}. Saved ${runsToProcess.length} completed runs.`);
             setStatus('partial');
-            
+
             const partialSynthesis = await synthesizeResults(runsToProcess);
             setPartialResults(partialSynthesis);
             setResults(partialSynthesis);
-            
+
             // AUTO-DOWNLOAD partial synthesis
             const timestamp = new Date().toISOString().split('T')[0];
             downloadFile(
               JSON.stringify(partialSynthesis, null, 2),
               `partial_synthesis_${fileName.replace('.txt', '')}_${timestamp}.json`
             );
-            
+
             return;
           } else {
             throw new Error(`Run ${runNumber} failed after only ${runsToProcess.length} completed runs. Not enough data. Error: ${runError.message}`);
@@ -1438,27 +1438,27 @@ if (allRuns.length > 1) {
       setProgress(100);
       setStatus('synthesizing');
       setCurrentStep('Synthesizing consensus themes...');
-      
+
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       const synthesized = await synthesizeResults(runsToProcess);
       setResults(synthesized);
       setStatus('complete');
       setCurrentStep('Analysis complete!');
-      
+
       // AUTO-DOWNLOAD final synthesis
       const timestamp = new Date().toISOString().split('T')[0];
       downloadFile(
         JSON.stringify(synthesized, null, 2),
         `final_synthesis_${fileName.replace('.txt', '')}_${timestamp}.json`
       );
-      
+
     } catch (err) {
       console.error('Analysis error:', err);
       setError(`Analysis failed: ${err.message}`);
       setStatus('error');
       setCurrentStep('');
-      
+
       if (runsToProcess.length >= 3) {
         const partialSynthesis = await synthesizeResults(runsToProcess);
         setPartialResults(partialSynthesis);
@@ -1478,7 +1478,7 @@ if (allRuns.length > 1) {
   // ============================================================================
   // EXPORT FUNCTIONS
   // ============================================================================
-  
+
   const exportResults = (usePartial = false) => {
     const dataToExport = usePartial ? partialResults : results;
     if (!dataToExport) return;
@@ -1512,23 +1512,23 @@ if (allRuns.length > 1) {
 
     let report = `QUALITATIVE THEMATIC ANALYSIS REPORT\n`;
     report += `${'='.repeat(70)}\n\n`;
-    
+
     if (dataToExport.isCustomStructure) {
       report += `📊  CUSTOM PROMPT STRUCTURE  📊\n`;
       report += `This analysis used a custom prompt format.\n`;
       report += `Consensus themes extracted from patterns across all runs.\n\n`;
     }
-    
+
     if (dataToExport.reliability.runCount < TOTAL_RUNS) {
       report += `⚠️  PARTIAL ANALYSIS REPORT ⚠️\n`;
       report += `This analysis is based on ${dataToExport.reliability.runCount} of ${TOTAL_RUNS} planned runs.\n`;
       report += `Results should be interpreted with appropriate caution.\n\n`;
     }
-    
+
     report += `File Analyzed: ${fileName}\n`;
     report += `Analysis Date: ${new Date().toLocaleDateString()}\n`;
     report += `Completed Runs: ${dataToExport.reliability.runCount} of ${TOTAL_RUNS}\n\n`;
-    
+
     if (cleaningStats) {
       report += `FILE PROCESSING SUMMARY\n`;
       report += `${'-'.repeat(70)}\n`;
@@ -1536,7 +1536,7 @@ if (allRuns.length > 1) {
       report += `Cleaned Size: ${cleaningStats.cleanedLength.toLocaleString()} characters, ${cleaningStats.cleanedLines.toLocaleString()} lines\n`;
       report += `Reduction: ${cleaningStats.reductionPercent}% of metadata/noise removed\n\n`;
     }
-    
+
     report += `RELIABILITY METRICS\n`;
     report += `${'-'.repeat(70)}\n`;
     report += `Average Inter-Run Consistency (Cosine): ${dataToExport.reliability.avgSimilarity}%\n`;
@@ -1544,35 +1544,35 @@ if (allRuns.length > 1) {
     report += `Cohen's Kappa (κ): ${dataToExport.reliability.avgKappa}\n`;
     report += `Kappa Range: ${dataToExport.reliability.minKappa} - ${dataToExport.reliability.maxKappa}\n`;
     report += `Reliability Assessment: ${dataToExport.reliability.interpretation}\n`;
-    
+
     if (dataToExport.reliability.warning) {
       report += `\n⚠️  ${dataToExport.reliability.warning}\n`;
     }
-    
+
     report += `\nInterpretation: `;
     if (dataToExport.reliability.runCount < TOTAL_RUNS) {
       report += `Based on ${dataToExport.reliability.runCount} runs, this analysis provides preliminary insights. `;
     }
     report += `A ${dataToExport.reliability.interpretation.toLowerCase()} reliability score indicates `;
     report += `${dataToExport.reliability.interpretation === 'High' ? 'strong thematic convergence across multiple analytical perspectives' : dataToExport.reliability.interpretation === 'Moderate' ? 'reasonable thematic consistency with some interpretive variation' : dataToExport.reliability.interpretation === 'Limited' ? 'limited data for reliability assessment' : 'considerable analytical divergence'}.\n\n`;
-    
+
     report += `CONSENSUS THEMES\n`;
     report += `${'-'.repeat(70)}\n`;
     report += `The following ${dataToExport.consensusThemes.length} themes emerged consistently:\n\n`;
-    
+
     dataToExport.consensusThemes.forEach((theme, idx) => {
       report += `${idx + 1}. ${theme.theme}\n`;
       report += `   Consistency: ${theme.consistency}% (${theme.appearanceCount}/${dataToExport.reliability.runCount} runs)\n`;
       report += `   Description: ${theme.description.slice(0, 200)}${theme.description.length > 200 ? '...' : ''}\n`;
       if (theme.sentiment) {
-      report += `   Sentiment: ${theme.sentiment}\n`;
+        report += `   Sentiment: ${theme.sentiment}\n`;
       }
       if (theme.evidence && theme.evidence.length > 0) {
         report += `   Evidence: "${theme.evidence[0].slice(0, 150)}${theme.evidence[0].length > 150 ? '...' : ''}"\n`;
       }
       report += `\n`;
     });
-    
+
     report += `METHODOLOGICAL NOTE\n`;
     report += `${'-'.repeat(70)}\n`;
     report += `Multi-perspective analysis with ${dataToExport.reliability.runCount} independent runs using\n`;
@@ -1583,7 +1583,7 @@ if (allRuns.length > 1) {
     }
     report += `Reliability measured using both Cosine Similarity and Cohen's Kappa (κ).\n`;
     report += `\n`;
-    
+
     if (dataToExport.reliability.runCount < TOTAL_RUNS) {
       report += `NOTE: Partial analysis (${dataToExport.reliability.runCount}/${TOTAL_RUNS} runs).\n`;
       report += `Consider completing remaining runs for maximum reliability.\n\n`;
@@ -1604,7 +1604,7 @@ if (allRuns.length > 1) {
 
     // CSV Header
     let csv = 'Theme,Description,Sentiment,Consistency,Appearance Count,Evidence\n';
-    
+
     // Add themes (works for both default and custom structures)
     dataToExport.consensusThemes.forEach((theme: any) => {
       const themeName = `"${(theme.theme || '').replace(/"/g, '""')}"`;
@@ -1613,10 +1613,10 @@ if (allRuns.length > 1) {
       const consistency = theme.consistency || '0';
       const appearanceCount = theme.appearanceCount || '0';
       const evidence = `"${(theme.evidence?.[0] || '').slice(0, 150).replace(/"/g, '""')}"`;
-      
+
       csv += `${themeName},${description},${sentiment},${consistency},${appearanceCount},${evidence}\n`;
     });
-    
+
     // Add reliability metrics as separate rows
     csv += '\n';
     csv += 'Metric,Value\n';
@@ -1642,281 +1642,187 @@ if (allRuns.length > 1) {
   // ============================================================================
   // RENDER COMPONENT
   // ============================================================================
-  
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-amber-50/30 to-stone-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto">
         {/* Main Input Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl shadow-blue-100/50 p-8 mb-8">
-          {/* Header */}
-          <div className="mb-8 pb-6 border-b border-gradient-to-r from-blue-100 to-indigo-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-200">
-                <BarChart3 className="w-7 h-7 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">Reliable Qualitative Thematic Analyzer</h1>
-            </div>
-            
-            {/* Attribution */}
-            <div className="mt-4">
-              <p className="text-sm text-gray-600 mb-2">
-                <span className="font-medium text-gray-900">Created by:</span> Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale University
-              </p>
-              <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                Comprehensive qualitative research analysis tool powered by advanced AI models. A complementary tool to your human-level qualitative research pipeline. Customize prompts for optimal results.
-              </p>
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/60 shadow-xl shadow-stone-200/40 p-8 mb-8">
+          {/* Header - Simplified */}
+          <div className="mb-6 pb-4 border-b border-stone-200">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <a 
-                  href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg hover:from-gray-900 hover:to-black transition-all duration-300 text-sm font-semibold shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+                <div className="p-2.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-md">
+                  <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
+                    <circle cx="5" cy="7" r="2" fill="currentColor" opacity="0.6" />
+                    <circle cx="19" cy="7" r="2" fill="currentColor" opacity="0.6" />
+                    <circle cx="5" cy="17" r="2" fill="currentColor" opacity="0.6" />
+                    <circle cx="19" cy="17" r="2" fill="currentColor" opacity="0.6" />
+                    <line x1="7" y1="8" x2="10" y2="10" />
+                    <line x1="17" y1="8" x2="14" y2="10" />
+                    <line x1="7" y1="16" x2="10" y2="14" />
+                    <line x1="17" y1="16" x2="14" y2="14" />
                   </svg>
-                  View on GitHub
-                </a>
-                <span className="text-xs text-gray-500">⭐ Give us a star!</span>
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-stone-800">Thematic Analyzer</h1>
+                  <p className="text-xs text-stone-500">by Nilesh Jain & Aza Allsop, Yale University</p>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          <p className="text-sm text-gray-600 mb-8 leading-relaxed">
-            Multi-perspective analysis with auto-save and instant downloads. Performs {seeds.length} independent run{seeds.length !== 1 ? 's' : ''} (one per seed) and compares them using cosine similarity with{' '}
-            <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener noreferrer" className="text-gray-900 underline hover:text-gray-700">all-MiniLM-L6-v2</a> (You can use other Similarity methods if you desire, see code!)
-            {' '}for reliability assessment. Customize runs, seeds, and temperature as needed.
-          </p>
 
-          {/* Important Warnings */}
-          <div className="mb-8 p-5 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200/50 rounded-xl shadow-sm">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-medium text-red-900 mb-3 text-sm">Important Security & Privacy Notice</h3>
-                <ul className="text-sm text-red-800 space-y-2 mb-3">
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span><strong className="font-medium">Always use deidentified data</strong> — Remove all personally identifiable information before uploading</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span><strong className="font-medium">No data is stored</strong> — All processing happens in your browser, no server storage</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span><strong className="font-medium">NOT HIPAA compliant</strong> — This tool is not designed for protected health information</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-600 mt-1">•</span>
-                    <span><strong className="font-medium">Use at your own risk</strong> — Ensure compliance with your organization's data policies</span>
-                  </li>
-                </ul>
-                <p className="text-xs text-red-700">
-                  <strong>GitHub:</strong> The whole process and code is open source at{' '}
-                  <a href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-red-900">our GitHub repository</a>
-                </p>
-              </div>
+              {/* GitHub Star Button */}
+              <a
+                href="https://github.com/NileshArnaiya/LLM-Thematic-Analysis-Tool"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 text-sm font-semibold"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+                </svg>
+                <span className="hidden sm:inline">⭐ Star on GitHub</span>
+                <span className="sm:hidden">⭐ Star</span>
+              </a>
             </div>
           </div>
 
-          {/* Model Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Select AI Model
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors disabled:bg-gray-50 disabled:text-gray-500"
-              disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-            >
-              {Object.entries(MODELS).map(([key, config]: [string, any]) => (
-                <option key={key} value={key}>{config.name}</option>
-              ))}
-            </select>
-            {selectedModel === 'azure-gpt-4o' && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-900">
-                  <strong>Azure OpenAI Configured:</strong> Endpoint: alright.openai.azure.com | Deployment: gpt-4o | API Version: 2024-12-01-preview
-                </p>
-              </div>
-            )}
-            {selectedModel.startsWith('openrouter-') && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
-                <p className="text-xs text-purple-900 mb-2">
-                  <strong>OpenRouter:</strong> Unified API for multiple LLMs. Model: {MODELS[selectedModel]?.model || 'unknown'}
-                </p>
-                <p className="text-xs text-purple-800">
-                  💡 If you get "Failed to fetch" errors, check: (1) API key is valid, (2) You have credits, (3) Browser console for CORS errors
-                </p>
-              </div>
-            )}
-            <p className="text-xs text-gray-500 mt-1.5">
-              Choose the AI model to use for analysis. Each model has different strengths and capabilities.
+          {/* Privacy Notice - Minimal */}
+          <div className="mb-6 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-800">
+              <strong>Privacy:</strong> Use deidentified data only. Processing happens in your browser.
             </p>
           </div>
 
-          {/* API Key Input */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              {MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API Key'}
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={`Enter your ${MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API'} key`}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors placeholder:text-gray-400"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              {selectedModel === 'gemini-2.5-pro' && (
-                <>Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google AI Studio</a></>
-              )}
-              {selectedModel === 'claude-3-5-sonnet' && (
-                <>Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Anthropic Console</a></>
+          {/* Model & API Key - 2 Column Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Model Selection */}
+            <div>
+              <label className="block text-sm font-medium text-stone-900 mb-2">
+                Select AI Model
+              </label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors disabled:bg-stone-50 disabled:text-stone-500"
+                disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
+              >
+                {Object.entries(MODELS).map(([key, config]: [string, any]) => (
+                  <option key={key} value={key}>{config.name}</option>
+                ))}
+              </select>
+              {selectedModel === 'azure-gpt-4o' && (
+                <div className="mt-2 p-2.5 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg">
+                  <p className="text-xs text-teal-900">
+                    <strong>Azure OpenAI Configured:</strong> Endpoint: alright.openai.azure.com
+                  </p>
+                </div>
               )}
               {selectedModel.startsWith('openrouter-') && (
-                <>Get your API key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">OpenRouter</a> - Access multiple models with one key</>
-              )}
-              {selectedModel === 'azure-gpt-4o' && (
-                <>Get your API key from <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Azure Portal</a> (Azure OpenAI Service)</>
-              )}
-              {selectedModel.startsWith('gpt-') && !selectedModel.startsWith('azure-') && (
-                <>Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">OpenAI Platform</a></>
-              )}
-              {selectedModel === 'llama-3-70b' && (
-                <>Get your API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Groq Console</a></>
-              )}
-              {selectedModel === 'deepseek-chat' && (
-                <>Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">DeepSeek Platform</a></>
-              )}
-            </p>
-          </div>
-
-          {/* Custom Prompt */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Custom Prompt <span className="text-gray-500 font-normal">(Optional)</span>
-            </label>
-            <textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder={DEFAULT_PROMPT}
-              rows={12}
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors font-mono placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-              disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-            />
-            <p className="text-xs text-gray-500 mt-1.5">
-              Upload transcript dialogue data and customize prompts to steer the model for best outputs. Available placeholders: <code className="bg-gray-100 px-1 rounded">{'{seed}'}</code> for the run seed, <code className="bg-gray-100 px-1 rounded">{'{text_chunk}'}</code> or <code className="bg-gray-100 px-1 rounded">{'{text}'}</code> for the transcript text. If no text placeholder is used, text is appended at the end. Leave empty to use default prompt.
-            </p>
-          </div>
-
-          {/* Temperature Control */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Temperature <span className="text-gray-500 font-normal">({temperature})</span>
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.1"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="flex-1"
-                disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-              />
-              <input
-                type="number"
-                min="0"
-                max="2"
-                step="0.1"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors disabled:bg-gray-50 disabled:text-gray-500"
-                disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-1.5">
-              Controls randomness: 0 = deterministic, 1 = balanced, 2 = creative. Applies to all runs.
-            </p>
-          </div>
-
-          {/* Seeds Configuration */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Seeds Configuration <span className="text-gray-500 font-normal">(Max 6, {seeds.length} configured)</span>
-            </label>
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {seeds.map((seed, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 border border-blue-200 rounded-lg text-sm shadow-sm hover:shadow-md transition-all duration-300 transform hover:scale-105"
-                  >
-                    <span className="font-mono text-gray-900">{seed}</span>
-                    <button
-                      onClick={() => setSeeds(seeds.filter((_, i) => i !== index))}
-                      disabled={seeds.length <= 1 || status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-                      className="text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Remove seed"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              {seeds.length < 6 && (
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={newSeedInput}
-                    onChange={(e) => setNewSeedInput(e.target.value)}
-                    placeholder="Enter seed value (e.g., 42)"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-500"
-                    disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && newSeedInput.trim()) {
-                        const seedValue = parseInt(newSeedInput.trim());
-                        if (!isNaN(seedValue) && seeds.length < 6) {
-                          setSeeds([...seeds, seedValue]);
-                          setNewSeedInput('');
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      if (newSeedInput.trim()) {
-                        const seedValue = parseInt(newSeedInput.trim());
-                        if (!isNaN(seedValue) && seeds.length < 6) {
-                          setSeeds([...seeds, seedValue]);
-                          setNewSeedInput('');
-                        }
-                      }
-                    }}
-                    disabled={!newSeedInput.trim() || seeds.length >= 6 || status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
-                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 disabled:transform-none disabled:shadow-none"
-                  >
-                    Add Seed
-                  </button>
+                <div className="mt-2 p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-900">
+                    <strong>OpenRouter:</strong> {MODELS[selectedModel]?.model || 'unknown'}
+                  </p>
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-1.5">
-              Seeds control variation across runs. Each seed creates one analysis run. Use <code className="bg-gray-100 px-1 rounded">{'{seed}'}</code> in your prompt to reference the current seed value (e.g., for "Run ID: {'{seed}'}" instructions).
-            </p>
+
+            {/* API Key Input */}
+            <div>
+              <label className="block text-sm font-medium text-stone-900 mb-2">
+                {MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API Key'}
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={`Enter your ${MODELS[selectedModel as keyof typeof MODELS]?.apiKeyName || 'API'} key`}
+                className="w-full px-3 py-2.5 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors placeholder:text-stone-400"
+              />
+              <p className="text-xs text-stone-500 mt-1.5">
+                {selectedModel === 'gemini-2.5-pro' && (
+                  <>Get key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">Google AI Studio</a></>
+                )}
+                {selectedModel === 'claude-3-5-sonnet' && (
+                  <>Get key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">Anthropic Console</a></>
+                )}
+                {selectedModel.startsWith('openrouter-') && (
+                  <>Get key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">OpenRouter</a></>
+                )}
+                {selectedModel === 'azure-gpt-4o' && (
+                  <>Get key from <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">Azure Portal</a></>
+                )}
+                {selectedModel.startsWith('gpt-') && !selectedModel.startsWith('azure-') && (
+                  <>Get key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">OpenAI</a></>
+                )}
+                {selectedModel === 'llama-3-70b' && (
+                  <>Get key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">Groq Console</a></>
+                )}
+                {selectedModel === 'deepseek-chat' && (
+                  <>Get key from <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">DeepSeek</a></>
+                )}
+              </p>
+            </div>
           </div>
+
+          {/* Advanced Options - Collapsible */}
+          <details className="mb-6 group">
+            <summary className="cursor-pointer text-sm font-medium text-stone-600 hover:text-stone-900 flex items-center gap-2 py-2">
+              <svg className="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              Advanced Options
+              <span className="text-xs text-stone-400 font-normal">(prompt, temperature, seeds)</span>
+            </summary>
+
+            <div className="mt-4 pl-6 border-l-2 border-stone-200 space-y-5">
+              {/* Custom Prompt */}
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1.5">Custom Prompt</label>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Leave empty to use default thematic analysis prompt..."
+                  rows={5}
+                  className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-mono placeholder:text-stone-400"
+                  disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
+                />
+              </div>
+
+              {/* Temperature & Seeds Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1.5">Temperature ({temperature})</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    value={temperature}
+                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                    className="w-full accent-amber-500"
+                    disabled={status === 'analyzing' || status === 'preprocessing' || status === 'synthesizing'}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1.5">Analysis Runs ({seeds.length})</label>
+                  <div className="flex flex-wrap gap-1">
+                    {seeds.map((seed, idx) => (
+                      <span key={idx} className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-mono">{seed}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
 
           {/* File Upload */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-900 mb-2">
               Upload Text File
             </label>
-            <div className="border-2 border-dashed border-blue-200 rounded-xl p-8 text-center hover:border-blue-400 transition-all duration-300 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 hover:shadow-md">
+            <div className="border-2 border-dashed border-amber-200 rounded-xl p-8 text-center hover:border-amber-400 transition-all duration-300 bg-gradient-to-br from-amber-50/30 to-orange-50/30 hover:shadow-md">
               <input
                 type="file"
                 accept=".txt"
@@ -1935,7 +1841,7 @@ if (allRuns.length > 1) {
             </div>
             <div className="mt-3 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-900">
-                <strong className="font-medium">File Size Warning:</strong> Do not upload files above 5MB. For larger files, 
+                <strong className="font-medium">File Size Warning:</strong> Do not upload files above 5MB. For larger files,
                 chunk them into multiple smaller files (under 5MB each) and combine the outputs later for best results.
               </p>
             </div>
@@ -1943,7 +1849,7 @@ if (allRuns.length > 1) {
 
           {/* File Stats Display */}
           {fileStats && (
-            <div className="mb-6 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-xl shadow-sm">
+            <div className="mb-6 p-5 bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100 rounded-xl shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <FileSearch className="w-4 h-4 text-gray-600" />
                 <h3 className="font-medium text-gray-900 text-sm">File Statistics</h3>
@@ -1984,7 +1890,7 @@ if (allRuns.length > 1) {
 
           {/* Cleaning Stats Display */}
           {cleaningStats && status !== 'idle' && (
-            <div className="mb-6 p-5 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl shadow-sm">
+            <div className="mb-6 p-5 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <Scissors className="w-4 h-4 text-gray-600" />
                 <h3 className="font-medium text-gray-900 text-sm">Preprocessing Complete</h3>
@@ -2006,7 +1912,7 @@ if (allRuns.length > 1) {
                 <p className="text-red-800 font-semibold">Error Occurred</p>
               </div>
               <p className="text-sm text-red-700 mb-3">{error}</p>
-              
+
               {partialResults && (
                 <div className="mt-3 pt-3 border-t border-red-300">
                   <p className="text-sm text-red-900 font-semibold mb-2">
@@ -2025,7 +1931,7 @@ if (allRuns.length > 1) {
             <button
               onClick={() => handleAnalysis(0)}
               disabled={status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing'}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed disabled:text-gray-500 flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3.5 rounded-xl font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-300 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed disabled:text-stone-500 flex items-center justify-center gap-2 text-sm shadow-lg shadow-amber-200/50 hover:shadow-xl hover:shadow-amber-300/50 disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing' ? (
                 <>
@@ -2043,7 +1949,7 @@ if (allRuns.length > 1) {
             {completedRuns.length > 0 && completedRuns.length < TOTAL_RUNS && status !== 'analyzing' && (
               <button
                 onClick={handleResume}
-                className="w-full bg-white text-blue-600 border-2 border-blue-200 py-3.5 rounded-xl font-semibold hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]"
+                className="w-full bg-white text-amber-600 border-2 border-amber-200 py-3.5 rounded-xl font-semibold hover:bg-amber-50 hover:border-amber-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 <RefreshCw className="w-4 h-4" />
                 Resume from Run {completedRuns.length + 1} ({TOTAL_RUNS - completedRuns.length} remaining)
@@ -2067,7 +1973,7 @@ if (allRuns.length > 1) {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
+                  className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -2098,47 +2004,47 @@ if (allRuns.length > 1) {
             )}
 
             {/* Reliability Metrics */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl shadow-blue-100/50 p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/60 shadow-xl shadow-stone-200/40 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <TrendingUp className="w-5 h-5 text-gray-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Reliability Metrics</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <p className="text-xs font-medium text-blue-600 mb-2">Average Consistency (Cosine)</p>
-                  <p className="text-3xl font-bold text-blue-700">{(results || partialResults).reliability.avgSimilarity}%</p>
-                  <p className="text-xs text-blue-500 mt-2">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <p className="text-xs font-medium text-amber-600 mb-2">Average Consistency (Cosine)</p>
+                  <p className="text-3xl font-bold text-amber-700">{(results || partialResults).reliability.avgSimilarity}%</p>
+                  <p className="text-xs text-amber-500 mt-2">
                     Range: {(results || partialResults).reliability.minSimilarity}% - {(results || partialResults).reliability.maxSimilarity}%
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <p className="text-xs font-medium text-indigo-600 mb-2">Cohen's Kappa (κ)</p>
-                  <p className="text-3xl font-bold text-indigo-700">{(results || partialResults).reliability.avgKappa}</p>
-                  <p className="text-xs text-indigo-500 mt-2">
+                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <p className="text-xs font-medium text-teal-600 mb-2">Cohen's Kappa (κ)</p>
+                  <p className="text-3xl font-bold text-teal-700">{(results || partialResults).reliability.avgKappa}</p>
+                  <p className="text-xs text-teal-500 mt-2">
                     Range: {(results || partialResults).reliability.minKappa} - {(results || partialResults).reliability.maxKappa}
                   </p>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
-                  <p className="text-xs font-medium text-green-600 mb-2">Reliability Assessment</p>
-                  <p className="text-3xl font-bold text-green-700">{(results || partialResults).reliability.interpretation}</p>
-                  <p className="text-xs text-green-500 mt-2">
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <p className="text-xs font-medium text-emerald-600 mb-2">Reliability Assessment</p>
+                  <p className="text-3xl font-bold text-emerald-700">{(results || partialResults).reliability.interpretation}</p>
+                  <p className="text-xs text-emerald-500 mt-2">
                     Based on {(results || partialResults).reliability.runCount}/{TOTAL_RUNS} runs
                   </p>
                 </div>
               </div>
-              
-              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-sm">
-                <p className="text-sm text-blue-900">
+
+              <div className="mt-4 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl shadow-sm">
+                <p className="text-sm text-teal-900">
                   <strong>Cohen's Kappa Interpretation:</strong> {' '}
                   {parseFloat((results || partialResults).reliability.avgKappa) > 0.8 ? 'Almost perfect agreement' :
-                   parseFloat((results || partialResults).reliability.avgKappa) > 0.6 ? 'Substantial agreement' :
-                   parseFloat((results || partialResults).reliability.avgKappa) > 0.4 ? 'Moderate agreement' :
-                   parseFloat((results || partialResults).reliability.avgKappa) > 0.2 ? 'Fair agreement' :
-                   parseFloat((results || partialResults).reliability.avgKappa) > 0 ? 'Slight agreement' : 'Poor agreement'}
+                    parseFloat((results || partialResults).reliability.avgKappa) > 0.6 ? 'Substantial agreement' :
+                      parseFloat((results || partialResults).reliability.avgKappa) > 0.4 ? 'Moderate agreement' :
+                        parseFloat((results || partialResults).reliability.avgKappa) > 0.2 ? 'Fair agreement' :
+                          parseFloat((results || partialResults).reliability.avgKappa) > 0 ? 'Slight agreement' : 'Poor agreement'}
                   {' '}(κ = {(results || partialResults).reliability.avgKappa})
                 </p>
               </div>
-              
+
               {(results || partialResults).reliability.warning && (
                 <div className="mt-4 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-800">
@@ -2149,7 +2055,7 @@ if (allRuns.length > 1) {
             </div>
 
             {/* Consensus Themes */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl shadow-indigo-100/50 p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/60 shadow-xl shadow-stone-200/40 p-6">
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-gray-600" />
@@ -2159,15 +2065,15 @@ if (allRuns.length > 1) {
                   {(results || partialResults).consensusThemes.length} themes identified
                 </p>
               </div>
-              
+
               {(results || partialResults).isCustomStructure && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-xl shadow-sm">
-                  <p className="text-sm text-blue-900">
+                <div className="mb-4 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-xl shadow-sm">
+                  <p className="text-sm text-teal-900">
                     <strong>Custom Prompt Structure:</strong> Consensus built from patterns across all runs. Themes extracted from arrays in your custom JSON structure.
                   </p>
                 </div>
               )}
-              
+
               {(results || partialResults).consensusThemes.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-sm">No consensus themes found.</p>
@@ -2176,31 +2082,30 @@ if (allRuns.length > 1) {
               ) : (
                 <div className="space-y-3">
                   {(results || partialResults).consensusThemes.map((theme, idx) => (
-                    <div key={idx} className="border border-gray-200/50 rounded-xl p-5 hover:border-blue-300 transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-blue-50/30 hover:shadow-lg hover:shadow-blue-100/50 transform hover:scale-[1.01]">
+                    <div key={idx} className="border border-stone-200/60 rounded-xl p-5 hover:border-amber-300 transition-all duration-300 bg-gradient-to-br from-stone-50/50 to-amber-50/30 hover:shadow-lg hover:shadow-amber-100/50 transform hover:scale-[1.01]">
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-base font-medium text-gray-900 flex-1">{theme.theme}</h3>
-                        <span className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 rounded-full text-xs font-bold whitespace-nowrap ml-3 shadow-sm">
+                        <h3 className="text-base font-medium text-stone-900 flex-1">{theme.theme}</h3>
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full text-xs font-bold whitespace-nowrap ml-3 shadow-sm">
                           {theme.consistency}% consistency
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-3 leading-relaxed">{theme.description}</p>
                       {theme.evidence && theme.evidence.length > 0 && (
-                        <div className="mb-3 p-4 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 rounded-lg border border-indigo-100 shadow-sm">
-                          <p className="text-xs font-semibold text-indigo-600 mb-2">Supporting Evidence:</p>
+                        <div className="mb-3 p-4 bg-gradient-to-br from-teal-50/50 to-cyan-50/50 rounded-lg border border-teal-100 shadow-sm">
+                          <p className="text-xs font-semibold text-teal-600 mb-2">Supporting Evidence:</p>
                           <p className="text-sm text-gray-700 italic leading-relaxed">"{theme.evidence[0].slice(0, 200)}{theme.evidence[0].length > 200 ? '...' : ''}"</p>
                         </div>
                       )}
                       <div className="flex items-center gap-2 flex-wrap">
                         {theme.sentiment && (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          theme.sentiment === 'positive' 
-                            ? 'bg-green-50 text-green-700 border border-green-200' 
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${theme.sentiment === 'positive'
+                            ? 'bg-green-50 text-green-700 border border-green-200'
                             : theme.sentiment === 'negative'
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : 'bg-gray-50 text-gray-700 border border-gray-200'
-                        }`}>
-                          {theme.sentiment}
-                        </span>
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'bg-gray-50 text-gray-700 border border-gray-200'
+                            }`}>
+                            {theme.sentiment}
+                          </span>
                         )}
                         <span className="text-xs text-gray-500">
                           Appeared in {theme.appearanceCount}/{(results || partialResults).reliability.runCount} runs
@@ -2210,7 +2115,7 @@ if (allRuns.length > 1) {
                   ))}
                 </div>
               )}
-              
+
               {/* Collapsible Individual Runs */}
               <details className="mt-6">
                 <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center gap-2">
@@ -2235,7 +2140,7 @@ if (allRuns.length > 1) {
             </div>
 
             {/* Export Options */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl shadow-green-100/50 p-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-stone-200/60 shadow-xl shadow-stone-200/40 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Export Options</h2>
               <p className="text-sm text-gray-600 mb-4">
                 Individual runs and consensus synthesis already auto-downloaded. These are additional export formats.
@@ -2250,14 +2155,14 @@ if (allRuns.length > 1) {
                 </button>
                 <button
                   onClick={() => exportCSV(status === 'partial')}
-                  className="flex-1 bg-white text-blue-600 border-2 border-blue-200 py-3 rounded-xl font-semibold hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+                  className="flex-1 bg-white text-teal-600 border-2 border-teal-200 py-3 rounded-xl font-semibold hover:bg-teal-50 hover:border-teal-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
                 </button>
                 <button
                   onClick={() => exportReport(status === 'partial')}
-                  className="flex-1 bg-white text-indigo-600 border-2 border-indigo-200 py-3 rounded-xl font-semibold hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
+                  className="flex-1 bg-white text-stone-600 border-2 border-stone-200 py-3 rounded-xl font-semibold hover:bg-stone-50 hover:border-stone-300 transition-all duration-300 flex items-center justify-center gap-2 text-sm shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95"
                 >
                   <FileText className="w-4 h-4" />
                   Export Report
