@@ -15,15 +15,41 @@ import { pipeline } from '@huggingface/transformers';
  */
 const Home = () => {
   // ============================================================================
+  // TYPE DEFINITIONS
+  // ============================================================================
+
+  interface FileStats {
+    size: string;
+    lines: number;
+    words: number;
+    chars: number;
+  }
+
+  interface FileEntry {
+    file: File;
+    name: string;
+    stats: FileStats | null;
+    cleanedText?: string;
+    cleaningStats?: any;
+    results?: any;
+    completedRuns?: any[];
+    status: 'pending' | 'processing' | 'complete' | 'error';
+    error?: string;
+  }
+
+  // ============================================================================
   // STATE MANAGEMENT
   // ============================================================================
 
   const [apiKey, setApiKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('azure-gpt-4o');
   const [customPrompt, setCustomPrompt] = useState('');
-  const [file, setFile] = useState(null);
-  const [fileName, setFileName] = useState('');
-  const [fileStats, setFileStats] = useState(null);
+
+  // Multi-file state
+  const [files, setFiles] = useState<FileEntry[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(-1);
+  const [allFilesResults, setAllFilesResults] = useState<any[]>([]);
+
   const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
   const [currentRun, setCurrentRun] = useState(0);
@@ -203,8 +229,9 @@ Return valid JSON in this exact structure:
    * 
    * @param {Object} runResult - Complete analysis result for one run
    * @param {number} runNumber - Run number (1-6)
+   * @param {string} fileName - Name of the file being analyzed
    */
-  const autoSaveRun = (runResult: any, runNumber: number) => {
+  const autoSaveRun = (runResult: any, runNumber: number, fileName: string) => {
     const timestamp = new Date().toISOString().split('T')[0];
     const runData = {
       fileName,
@@ -1275,48 +1302,92 @@ Return valid JSON in this exact structure:
   // ============================================================================
 
   /**
-   * Handle file upload with validation and stats calculation
+   * Handle multiple file upload with validation and stats calculation
    */
-  const handleFileUpload = async (e) => {
-    const uploadedFile = e.target.files[0];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFiles = e.target.files;
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
 
-    if (!uploadedFile) return;
-
-    // Check file size (5MB limit)
     const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (uploadedFile.size > maxSize) {
-      setError(`File size exceeds 5MB limit. File size: ${(uploadedFile.size / 1024 / 1024).toFixed(2)}MB. Please chunk your file into smaller parts (under 5MB each) and combine outputs later.`);
-      setFile(null);
-      setFileName('');
-      setFileStats(null);
-      return;
-    }
+    const newFiles: FileEntry[] = [];
+    const errors: string[] = [];
 
-    if (uploadedFile.type === 'text/plain' || uploadedFile.name.endsWith('.txt')) {
-      setFile(uploadedFile);
-      setFileName(uploadedFile.name);
-      setError('');
-      setPartialResults(null);
-      setCompletedRuns([]);
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const uploadedFile = uploadedFiles[i];
+
+      // Check file size (5MB limit)
+      if (uploadedFile.size > maxSize) {
+        errors.push(`${uploadedFile.name}: exceeds 5MB limit (${(uploadedFile.size / 1024 / 1024).toFixed(2)}MB)`);
+        continue;
+      }
+
+      // Check file type
+      if (uploadedFile.type !== 'text/plain' && !uploadedFile.name.endsWith('.txt')) {
+        errors.push(`${uploadedFile.name}: must be a .txt file`);
+        continue;
+      }
+
+      // Check for duplicates
+      const isDuplicate = files.some(f => f.name === uploadedFile.name);
+      if (isDuplicate) {
+        errors.push(`${uploadedFile.name}: already added`);
+        continue;
+      }
 
       try {
         const text = await uploadedFile.text();
-        const stats = {
+        const stats: FileStats = {
           size: (uploadedFile.size / 1024).toFixed(2),
           lines: text.split('\n').length,
           words: text.split(/\s+/).filter(w => w.length > 0).length,
           chars: text.length
         };
-        setFileStats(stats);
-      } catch (err) {
-        setError('Error reading file: ' + err.message);
+
+        newFiles.push({
+          file: uploadedFile,
+          name: uploadedFile.name,
+          stats,
+          status: 'pending'
+        });
+      } catch (err: any) {
+        errors.push(`${uploadedFile.name}: error reading file - ${err.message}`);
       }
-    } else {
-      setError('Please upload a .txt file (plain text format)');
-      setFile(null);
-      setFileName('');
-      setFileStats(null);
     }
+
+    if (errors.length > 0) {
+      setError(errors.join('; '));
+    } else {
+      setError('');
+    }
+
+    if (newFiles.length > 0) {
+      setFiles(prev => [...prev, ...newFiles]);
+      setPartialResults(null);
+      setResults(null);
+      setAllFilesResults([]);
+    }
+
+    // Reset the input so the same file can be re-added if removed
+    e.target.value = '';
+  };
+
+  /**
+   * Remove a file from the upload list
+   */
+  const removeFile = (fileName: string) => {
+    setFiles(prev => prev.filter(f => f.name !== fileName));
+  };
+
+  /**
+   * Clear all uploaded files
+   */
+  const clearAllFiles = () => {
+    setFiles([]);
+    setError('');
+    setPartialResults(null);
+    setResults(null);
+    setAllFilesResults([]);
+    setCurrentFileIndex(-1);
   };
 
   // ============================================================================
@@ -1324,155 +1395,204 @@ Return valid JSON in this exact structure:
   // ============================================================================
 
   /**
-   * Main analysis function - FIXED VERSION
+   * Main analysis function - MULTI-FILE VERSION
    * 
-   * Critical Fixes:
-   * 1. Uses local array (runsToProcess) instead of state for run tracking
-   *    - Eliminates race conditions
-   *    - Ensures synchronous operation
-   * 
-   * 2. Auto-saves each run immediately
-   *    - No data loss on failure
-   *    - User can inspect individual runs
-   * 
-   * 3. Passes runNumber to analyzeText()
-   *    - Fixes "Run 0" bug
-   *    - Accurate progress tracking
-   * 
-   * 4. Downloads final/partial synthesis automatically
-   *    - No manual export needed
-   *    - Immediate results availability
-   * 
-   * @param {number} resumeFrom - Run number to resume from (0 = start fresh)
+   * Processes multiple files sequentially:
+   * 1. Loops through all uploaded files
+   * 2. For each file, runs all configured analysis passes
+   * 3. Auto-saves results per file
+   * 4. Aggregates all results at the end
    */
-  const handleAnalysis = async (resumeFrom = 0) => {
+  const handleAnalysis = async () => {
     if (!apiKey) {
-      setError('Please enter your Gemini API key');
+      setError('Please enter your API key');
       return;
     }
-    if (!file && !cleanedText) {
-      setError('Please upload a text file');
+    if (files.length === 0) {
+      setError('Please upload at least one text file');
       return;
     }
 
-    setStatus(resumeFrom > 0 ? 'resuming' : 'preprocessing');
-    setProgress((resumeFrom / TOTAL_RUNS) * 100);
+    setStatus('preprocessing');
+    setProgress(0);
     setError('');
-    setCurrentStep(resumeFrom > 0 ? 'Resuming analysis...' : 'Reading file...');
+    setCurrentStep('Starting analysis...');
+    setAllFilesResults([]);
 
-    let textToAnalyze = cleanedText;
-    // CRITICAL: Use local array instead of state for run tracking
-    let runsToProcess = [];
+    const totalFiles = files.length;
+    const allResults: any[] = [];
 
     try {
-      // Preprocessing (only if starting fresh)
-      if (resumeFrom === 0) {
-        const rawText = await file.text();
-        textToAnalyze = preprocessText(rawText);
-        setCleanedText(textToAnalyze);
-        setCompletedRuns([]);
-        runsToProcess = [];
-      } else {
-        // Resume: start with existing runs
-        runsToProcess = completedRuns;
-      }
+      // Process each file
+      for (let fileIdx = 0; fileIdx < totalFiles; fileIdx++) {
+        const currentFile = files[fileIdx];
+        const fileName = currentFile.name;
+        setCurrentFileIndex(fileIdx);
 
-      setStatus('analyzing');
-      const startFrom = resumeFrom > 0 ? resumeFrom : 0;
+        // Update file status
+        setFiles(prev => prev.map((f, i) =>
+          i === fileIdx ? { ...f, status: 'processing' as const } : f
+        ));
 
-      // Main analysis loop
-      for (let i = startFrom; i < TOTAL_RUNS; i++) {
-        const runNumber = i + 1;
-        setCurrentRun(runNumber);
-        setProgress((i / TOTAL_RUNS) * 100);
-        setCurrentStep(`Analyzing run ${runNumber}/${TOTAL_RUNS}...`);
+        setCurrentStep(`Processing file ${fileIdx + 1}/${totalFiles}: ${fileName}`);
 
-        try {
-          // FIXED: Pass runNumber directly (eliminates Run 0 bug)
-          const analysis = await analyzeText(textToAnalyze, SEEDS[i], runNumber);
+        // Read and preprocess the file
+        const rawText = await currentFile.file.text();
+        const textToAnalyze = preprocessText(rawText);
 
-          const runResult = {
-            ...analysis,
-            runNumber,
-            seed: SEEDS[i]
-          };
+        // Store cleaned text in file entry
+        setFiles(prev => prev.map((f, i) =>
+          i === fileIdx ? { ...f, cleanedText: textToAnalyze, cleaningStats } : f
+        ));
 
-          // Add to local array immediately
-          runsToProcess.push(runResult);
+        // Process all runs for this file
+        const runsForThisFile: any[] = [];
 
-          // Update state for UI
-          setCompletedRuns([...runsToProcess]);
+        setStatus('analyzing');
 
-          // AUTO-SAVE: Download this run immediately
-          autoSaveRun(runResult, runNumber);
+        for (let runIdx = 0; runIdx < TOTAL_RUNS; runIdx++) {
+          const runNumber = runIdx + 1;
+          setCurrentRun(runNumber);
 
-          setProgress(((i + 1) / TOTAL_RUNS) * 100);
+          // Calculate overall progress: (file progress + run progress within file)
+          const fileProgress = fileIdx / totalFiles;
+          const runProgress = runIdx / TOTAL_RUNS / totalFiles;
+          setProgress((fileProgress + runProgress) * 100);
 
-        } catch (runError) {
-          console.error(`Run ${runNumber} failed:`, runError);
+          setCurrentStep(`File ${fileIdx + 1}/${totalFiles}: ${fileName} - Run ${runNumber}/${TOTAL_RUNS}`);
 
-          // If we have enough runs, show partial results
-          if (runsToProcess.length >= 3) {
-            setError(`Run ${runNumber} failed: ${runError.message}. Saved ${runsToProcess.length} completed runs.`);
-            setStatus('partial');
+          try {
+            const analysis = await analyzeText(textToAnalyze, SEEDS[runIdx], runNumber);
 
-            const partialSynthesis = await synthesizeResults(runsToProcess);
-            setPartialResults(partialSynthesis);
-            setResults(partialSynthesis);
+            const runResult = {
+              ...analysis,
+              runNumber,
+              seed: SEEDS[runIdx],
+              fileName
+            };
 
-            // AUTO-DOWNLOAD partial synthesis
-            const timestamp = new Date().toISOString().split('T')[0];
-            downloadFile(
-              JSON.stringify(partialSynthesis, null, 2),
-              `partial_synthesis_${fileName.replace('.txt', '')}_${timestamp}.json`
-            );
+            runsForThisFile.push(runResult);
 
-            return;
-          } else {
-            throw new Error(`Run ${runNumber} failed after only ${runsToProcess.length} completed runs. Not enough data. Error: ${runError.message}`);
+            // AUTO-SAVE: Download this run immediately
+            autoSaveRun(runResult, runNumber, fileName);
+
+            // Update completed runs for this file
+            setFiles(prev => prev.map((f, i) =>
+              i === fileIdx ? { ...f, completedRuns: [...runsForThisFile] } : f
+            ));
+
+          } catch (runError: any) {
+            console.error(`File ${fileName} Run ${runNumber} failed:`, runError);
+
+            // If we have enough runs for this file, continue to synthesis
+            if (runsForThisFile.length >= 3) {
+              setError(`${fileName} Run ${runNumber} failed: ${runError.message}. Using ${runsForThisFile.length} completed runs.`);
+              break; // Exit run loop for this file, but continue to next file
+            } else {
+              // Mark file as error and continue to next file
+              setFiles(prev => prev.map((f, i) =>
+                i === fileIdx ? { ...f, status: 'error' as const, error: runError.message } : f
+              ));
+              continue;
+            }
           }
         }
+
+        // Synthesize results for this file
+        if (runsForThisFile.length >= 1) {
+          setCurrentStep(`Synthesizing results for: ${fileName}`);
+          const synthesized = await synthesizeResults(runsForThisFile);
+
+          const fileResult = {
+            fileName,
+            synthesis: synthesized,
+            completedRuns: runsForThisFile.length,
+            totalRuns: TOTAL_RUNS
+          };
+
+          allResults.push(fileResult);
+
+          // Update file status and results
+          setFiles(prev => prev.map((f, i) =>
+            i === fileIdx ? {
+              ...f,
+              status: 'complete' as const,
+              results: synthesized
+            } : f
+          ));
+
+          // AUTO-DOWNLOAD synthesis for this file
+          const timestamp = new Date().toISOString().split('T')[0];
+          downloadFile(
+            JSON.stringify(fileResult, null, 2),
+            `synthesis_${fileName.replace('.txt', '')}_${timestamp}.json`
+          );
+        }
+
+        // Update overall progress
+        setProgress(((fileIdx + 1) / totalFiles) * 100);
       }
 
-      // All runs completed successfully
-      setProgress(100);
-      setStatus('synthesizing');
-      setCurrentStep('Synthesizing consensus themes...');
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const synthesized = await synthesizeResults(runsToProcess);
-      setResults(synthesized);
+      // All files processed
+      setAllFilesResults(allResults);
       setStatus('complete');
-      setCurrentStep('Analysis complete!');
+      setCurrentStep(`Analysis complete! Processed ${allResults.length} file(s).`);
+      setCurrentFileIndex(-1);
 
-      // AUTO-DOWNLOAD final synthesis
-      const timestamp = new Date().toISOString().split('T')[0];
-      downloadFile(
-        JSON.stringify(synthesized, null, 2),
-        `final_synthesis_${fileName.replace('.txt', '')}_${timestamp}.json`
-      );
+      // Create aggregate results for display
+      if (allResults.length > 0) {
+        // Use the first file's results for main display, or combine them
+        if (allResults.length === 1) {
+          setResults(allResults[0].synthesis);
+        } else {
+          // Create a combined view for multiple files
+          const combinedResults = {
+            consensusThemes: [],
+            reliability: {
+              avgSimilarity: '0',
+              minSimilarity: '0',
+              maxSimilarity: '0',
+              avgKappa: '0',
+              minKappa: '0',
+              maxKappa: '0',
+              interpretation: 'Multiple Files',
+              runCount: allResults.reduce((sum, r) => sum + r.completedRuns, 0),
+              warning: `Results combined from ${allResults.length} files`
+            },
+            allRuns: allResults.flatMap(r => r.synthesis.allRuns || []),
+            isMultiFile: true,
+            fileResults: allResults
+          };
+          setResults(combinedResults);
+        }
 
-    } catch (err) {
+        // AUTO-DOWNLOAD combined results
+        const timestamp = new Date().toISOString().split('T')[0];
+        downloadFile(
+          JSON.stringify({
+            analysisDate: new Date().toISOString(),
+            totalFiles: allResults.length,
+            fileResults: allResults
+          }, null, 2),
+          `combined_analysis_${timestamp}.json`
+        );
+      }
+
+    } catch (err: any) {
       console.error('Analysis error:', err);
       setError(`Analysis failed: ${err.message}`);
       setStatus('error');
       setCurrentStep('');
-
-      if (runsToProcess.length >= 3) {
-        const partialSynthesis = await synthesizeResults(runsToProcess);
-        setPartialResults(partialSynthesis);
-      }
+      setCurrentFileIndex(-1);
     }
   };
 
   /**
-   * Resume analysis from last successful run
+   * Resume is not supported in multi-file mode (simplified approach)
    */
   const handleResume = () => {
-    if (completedRuns.length > 0 && completedRuns.length < TOTAL_RUNS) {
-      handleAnalysis(completedRuns.length);
-    }
+    // In multi-file mode, just restart the analysis
+    handleAnalysis();
   };
 
   // ============================================================================
@@ -1483,26 +1603,30 @@ Return valid JSON in this exact structure:
     const dataToExport = usePartial ? partialResults : results;
     if (!dataToExport) return;
 
+    const fileNames = files.map(f => f.name).join(', ');
     const report = {
-      fileName,
+      files: files.map(f => f.name),
       analysisDate: new Date().toISOString(),
       isPartialAnalysis: usePartial || (dataToExport.reliability.runCount < TOTAL_RUNS),
       isCustomStructure: dataToExport.isCustomStructure || false,
+      isMultiFile: dataToExport.isMultiFile || false,
       completedRuns: dataToExport.reliability.runCount,
       totalRuns: TOTAL_RUNS,
-      fileStats,
+      fileStats: files.map(f => ({ name: f.name, stats: f.stats })),
       cleaningStats,
       reliability: dataToExport.reliability,
       consensusThemes: dataToExport.consensusThemes,
       individualRuns: dataToExport.allRuns,
+      fileResults: dataToExport.fileResults || allFilesResults,
       note: dataToExport.isCustomStructure ? 'Custom prompt structure - consensus themes extracted from recurring patterns across runs.' : undefined
     };
 
     const timestamp = new Date().toISOString().split('T')[0];
     const suffix = usePartial ? '_partial' : '';
+    const fileLabel = files.length === 1 ? files[0].name.replace('.txt', '') : `${files.length}_files`;
     downloadFile(
       JSON.stringify(report, null, 2),
-      `thematic_analysis${suffix}_${fileName.replace('.txt', '')}_${timestamp}.json`
+      `thematic_analysis${suffix}_${fileLabel}_${timestamp}.json`
     );
   };
 
@@ -1525,7 +1649,8 @@ Return valid JSON in this exact structure:
       report += `Results should be interpreted with appropriate caution.\n\n`;
     }
 
-    report += `File Analyzed: ${fileName}\n`;
+    const fileNames = files.map(f => f.name).join(', ');
+    report += `Files Analyzed: ${fileNames}\n`;
     report += `Analysis Date: ${new Date().toLocaleDateString()}\n`;
     report += `Completed Runs: ${dataToExport.reliability.runCount} of ${TOTAL_RUNS}\n\n`;
 
@@ -1591,9 +1716,10 @@ Return valid JSON in this exact structure:
 
     const timestamp = new Date().toISOString().split('T')[0];
     const suffix = usePartial ? '_partial' : '';
+    const fileLabel = files.length === 1 ? files[0].name.replace('.txt', '') : `${files.length}_files`;
     downloadFile(
       report,
-      `thematic_report${suffix}_${fileName.replace('.txt', '')}_${timestamp}.txt`,
+      `thematic_report${suffix}_${fileLabel}_${timestamp}.txt`,
       'text/plain'
     );
   };
@@ -1632,9 +1758,10 @@ Return valid JSON in this exact structure:
 
     const timestamp = new Date().toISOString().split('T')[0];
     const suffix = usePartial ? '_partial' : '';
+    const fileLabel = files.length === 1 ? files[0].name.replace('.txt', '') : `${files.length}_files`;
     downloadFile(
       csv,
-      `thematic_analysis${suffix}_${fileName.replace('.txt', '')}_${timestamp}.csv`,
+      `thematic_analysis${suffix}_${fileLabel}_${timestamp}.csv`,
       'text/csv'
     );
   };
@@ -1820,12 +1947,13 @@ Return valid JSON in this exact structure:
           {/* File Upload */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-900 mb-2">
-              Upload Text File
+              Upload Text Files
             </label>
             <div className="border-2 border-dashed border-amber-200 rounded-xl p-8 text-center hover:border-amber-400 transition-all duration-300 bg-gradient-to-br from-amber-50/30 to-orange-50/30 hover:shadow-md">
               <input
                 type="file"
                 accept=".txt"
+                multiple
                 onChange={handleFileUpload}
                 className="hidden"
                 id="file-upload"
@@ -1834,9 +1962,9 @@ Return valid JSON in this exact structure:
               <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-700 mb-1 font-medium">
-                  {fileName || 'Click to upload or drag and drop'}
+                  {files.length > 0 ? `${files.length} file(s) selected` : 'Click to upload or drag and drop'}
                 </p>
-                <p className="text-xs text-gray-500">Transcript files (.txt format)</p>
+                <p className="text-xs text-gray-500">Transcript files (.txt format) - Select multiple files</p>
               </label>
             </div>
             <div className="mt-3 p-3 bg-amber-50/50 border border-amber-200 rounded-lg">
@@ -1847,30 +1975,65 @@ Return valid JSON in this exact structure:
             </div>
           </div>
 
-          {/* File Stats Display */}
-          {fileStats && (
+          {/* File List Display */}
+          {files.length > 0 && (
             <div className="mb-6 p-5 bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-100 rounded-xl shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <FileSearch className="w-4 h-4 text-gray-600" />
-                <h3 className="font-medium text-gray-900 text-sm">File Statistics</h3>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileSearch className="w-4 h-4 text-gray-600" />
+                  <h3 className="font-medium text-gray-900 text-sm">Uploaded Files ({files.length})</h3>
+                </div>
+                <button
+                  onClick={clearAllFiles}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
+                  disabled={status === 'analyzing' || status === 'preprocessing'}
+                >
+                  Clear All
+                </button>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Size</p>
-                  <p className="font-medium text-gray-900">{fileStats.size} KB</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Lines</p>
-                  <p className="font-medium text-gray-900">{fileStats.lines.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Words</p>
-                  <p className="font-medium text-gray-900">{fileStats.words.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs mb-1">Characters</p>
-                  <p className="font-medium text-gray-900">{fileStats.chars.toLocaleString()}</p>
-                </div>
+              <div className="space-y-2">
+                {files.map((fileEntry, idx) => (
+                  <div key={fileEntry.name} className={`flex items-center justify-between p-3 rounded-lg border ${fileEntry.status === 'processing' ? 'bg-amber-50 border-amber-200' :
+                    fileEntry.status === 'complete' ? 'bg-green-50 border-green-200' :
+                      fileEntry.status === 'error' ? 'bg-red-50 border-red-200' :
+                        'bg-white border-gray-200'
+                    }`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        <span className="font-medium text-sm text-gray-900">{fileEntry.name}</span>
+                        {currentFileIndex === idx && status === 'analyzing' && (
+                          <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
+                        )}
+                        {fileEntry.status === 'complete' && (
+                          <CheckCircle className="w-3 h-3 text-green-600" />
+                        )}
+                        {fileEntry.status === 'error' && (
+                          <AlertCircle className="w-3 h-3 text-red-600" />
+                        )}
+                      </div>
+                      {fileEntry.stats && (
+                        <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                          <span>{fileEntry.stats.size} KB</span>
+                          <span>{fileEntry.stats.words.toLocaleString()} words</span>
+                          <span>{fileEntry.stats.lines.toLocaleString()} lines</span>
+                        </div>
+                      )}
+                      {fileEntry.error && (
+                        <p className="text-xs text-red-600 mt-1">{fileEntry.error}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => removeFile(fileEntry.name)}
+                      className="ml-2 p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      disabled={status === 'analyzing' || status === 'preprocessing'}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1929,8 +2092,8 @@ Return valid JSON in this exact structure:
           {/* Action Buttons */}
           <div className="space-y-3">
             <button
-              onClick={() => handleAnalysis(0)}
-              disabled={status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing'}
+              onClick={() => handleAnalysis()}
+              disabled={status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing' || files.length === 0}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3.5 rounded-xl font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-300 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed disabled:text-stone-500 flex items-center justify-center gap-2 text-sm shadow-lg shadow-amber-200/50 hover:shadow-xl hover:shadow-amber-300/50 disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {status === 'preprocessing' || status === 'analyzing' || status === 'synthesizing' ? (
