@@ -54,12 +54,6 @@ Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provi
 - **Groq Llama 3 70B** - Fast inference
 - **DeepSeek Chat** - Competitive performance
 
-#### OpenRouter Integration
-- **Claude 3.5 Sonnet** - Unified API access
-- **Llama 3.2 90B Vision** - Larger parameter count
-- **DeepSeek R1** - Latest reasoning model
-- Single API key for multiple models
-- Cost-effective pricing
 
 ### LLM Provider Comparison
 
@@ -72,13 +66,6 @@ Created by **Aza Allsop and Nilesh Arnaiya at Aza Lab at Yale**, this tool provi
 | **Llama 3 70B** | Groq | Fast inference | Very Fast | Free/Paid | Groq |
 | **DeepSeek Chat** | DeepSeek | Cost-effective | Fast | Cheap | DeepSeek |
 | **OpenRouter** | Multiple | Multi-model access | Varies | Cost-effective | OpenRouter |
-
-### User Experience
-- **Modern UI**: Beautiful gradient design with glassmorphism, smooth animations
-- **Auto-Download**: Every completed run saves automatically to browser downloads
-- **Progress Tracking**: Real-time progress indicators with detailed status updates
-- **Custom Prompts**: Full control over analysis with `{seed}` and `{text_chunk}` placeholders
-- **Flexible Configuration**: Adjustable seeds (1-6) and temperature (0.0-2.0)
 
 
 ## 🎨 Custom Prompts
@@ -219,38 +206,6 @@ const synthesizeResults = async (allRuns: any[]) => {
   // Calculates inter-run similarities
   // Identifies consensus themes
   // Provides reliability metrics and warnings
-}
-```
-
-**Consensus Logic:**
-- **Threshold**: Themes must appear in ≥50% of runs
-- **Adaptive**: Adjusts for partial data (fewer than 6 runs)
-- **Ranking**: Sorts by consistency percentage
-- **Evidence**: Collects supporting quotes from all occurrences
-
-### Error Handling & Resilience
-
-#### Retry Mechanism (`withRetry`)
-```typescript
-const withRetry = (fn: any, maxRetries: number = MAX_RETRIES) => {
-  // Exponential backoff: 1.5s, 3s, 6s delays
-  // Transparent error handling
-  // Configurable retry attempts
-}
-```
-
-**Retry Strategy:**
-- **Max Retries**: 3 attempts per operation
-- **Backoff Formula**: `1500ms * (2 ^ attempt)`
-- **Error Categories**: Network, authentication, rate limiting
-- **Graceful Failure**: Provides partial results when possible
-
-#### Auto-Save System (`autoSaveRun`)
-```typescript
-const autoSaveRun = (runResult: any, runNumber: number) => {
-  // Immediate download after each successful run
-  // Prevents data loss on failures
-  // Provides audit trail for analysis
 }
 ```
 
@@ -406,34 +361,6 @@ npm run build
 pnpm build
 ```
 
-### Environment Configuration
-API keys are entered directly in the UI - no environment variables needed.
-All processing happens client-side for maximum privacy.
-
-## 🎨 UI/UX Features
-
-### Design System in NextJS (Frontend) 
-- **Framework**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS with modern gradients and glassmorphism
-- **Color Palette**: Blue-indigo-purple gradient scheme
-- **Icons**: Lucide React icon library
-- **Responsive**: Mobile-first design approach
-- **Animations**: Smooth transitions and micro-interactions (hover, scale, shadow)
-
-### User Interface Components
-- **Model Selection**: Dropdown with 9+ LLM options
-- **Configuration Panel**: 
-  - Temperature slider (0.0-2.0) with live preview
-  - Seed management (add/remove up to 6 seeds)
-  - Custom prompt editor with syntax help
-- **File Upload**: Gradient-bordered drag-and-drop with validation
-- **Progress Tracking**: Animated gradient progress bars with detailed status
-- **Results Display**: 
-  - Gradient metric cards (Cosine Similarity, Cohen's Kappa, Reliability)
-  - Interactive theme cards with hover effects
-  - Collapsible individual run data
-- **Export Options**: Multiple format downloads (JSON, CSV, TXT)
-- **Error Handling**: Detailed error messages with console logging for debugging
 
 ## ⚡ Latest Improvements (v2.0)
 
@@ -449,53 +376,6 @@ All processing happens client-side for maximum privacy.
 - ✅ **Modern UI** - Gradient design with glassmorphism
 - ✅ **Enhanced Debugging** - Detailed console logging and error messages
 
-### Bug Fixes
-- 🐛 Fixed synthesis freezing with sampling and thread yielding
-- 🐛 Fixed "Run 0" bug with proper run number tracking
-- 🐛 Fixed export formats for custom prompt structures
-- 🐛 Improved error handling for all API providers
-- 🐛 Better CORS handling for OpenRouter
-
-## 🔒 Security & Privacy
-
-### Data Handling
-- **Client-Side Processing**: All analysis performed in browser
-- **No Server Storage**: Files never stored on external servers
-- **API Key Security**: Stored in browser memory only
-- **Local Downloads**: All exports saved locally
-
-### API Security
-- **HTTPS Only**: All API calls use secure connections
-- **Rate Limiting**: Built-in retry logic handles API limits
-- **Error Handling**: Secure error messages without data exposure
-
-## 🚀 Deployment
-
-### Build Configuration
-```typescript
-// next.config.ts
-const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,  // Relaxed for rapid development
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-};
-```
-
-### TypeScript Configuration
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "strict": false,
-    "noImplicitAny": false,
-    "suppressImplicitAnyIndexErrors": true,
-    "noStrictGenericChecks": true
-  }
-}
-```
 
 ## 📝 Usage Examples
 
@@ -549,6 +429,7 @@ const nextConfig: NextConfig = {
 - ✅ Dynamic seed configuration
 - ✅ Temperature control
 - ✅ Custom prompt support
+- ✅ BATCH Processing of files
 - ✅ CSV export format
 - ✅ Consensus themes for custom structures
 
@@ -564,7 +445,6 @@ const nextConfig: NextConfig = {
   - Side-by-side LLM comparison view
   - Real-time collaborative analysis
 - **Research Tools**:
-  - Batch processing multiple files
   - Citation extraction and management (With Bibby AI at trybibby.com)
   - Integration with reference managers with zotero or Bibby 
 
@@ -586,7 +466,7 @@ Qualitative Research},
 ```
 
 ## 📄 License
-
+With help from Bibby AI - Latex Writing tool for academics
 This project is developed by Aza Lab at Yale for qualitative research applications. Please contact Dr. Aza Allsop and Researcher Nilesh Arnaiya for commercial academic licensing and usage permissions.
 
 ## 🆘 Support
