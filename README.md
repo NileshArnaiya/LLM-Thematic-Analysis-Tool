@@ -454,14 +454,14 @@ pnpm build
 If you use ThemeLLM in your research, please use the following BibTeX entry.
 
 ```bibtex
-@article{azaNilesh2025,
-  title={ThemeLLM: Reliable Multi-Perspective Thematic Analysis via LLM
-Ensemble Validation: A Cross-Validation Approach to
-Qualitative Research},
-  author={Aza Allsop, Nilesh Jain},
-  journal={arXiv preprint arXiv:2408.0071114},
-  url={https://arxiv.org/abs/2408.00712114},
-  year={2025}
+@misc{jain2026multillmthematicanalysisdual,
+      title={Multi-LLM Thematic Analysis with Dual Reliability Metrics: Combining Cohen's Kappa and Semantic Similarity for Qualitative Research Validation}, 
+      author={Nilesh Jain and Hyungil Suh and Seyi Adeyinka and Leor Roseman and Aza Allsop},
+      year={2026},
+      eprint={2512.20352},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2512.20352}, 
 }
 ```
 
