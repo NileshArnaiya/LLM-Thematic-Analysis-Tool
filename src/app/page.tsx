@@ -69,8 +69,8 @@ const Home = () => {
   // CONFIGURATION
   // ============================================================================
 
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_BASE = 1500;
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_BASE = 4000;
   const TOTAL_RUNS = seeds.length;
   const SEEDS = seeds;
 
@@ -597,12 +597,24 @@ Return valid JSON in this exact structure:
       let errorMessage = response.statusText;
 
       try {
-        const errorData = await response.json();
-        console.error('API Error Response:', errorData);
-        errorMessage = errorData.error?.message || errorData.message || errorData.error || errorMessage;
+        const textData = await response.text();
+        console.error('API Error Response Text:', textData);
+        if (textData) {
+          try {
+            const errorData = JSON.parse(textData);
+            errorMessage = errorData.error?.message || errorData.message || errorData.error || textData;
+          } catch (e) {
+            errorMessage = textData; // Use raw text if not JSON
+          }
+        }
 
         if (response.status === 429) {
-          throw new Error(`Rate limit exceeded. Wait and retry. (${errorMessage})`);
+          const isQuota = errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('insufficient');
+          if (isQuota) {
+            throw new Error(`Account Quota Exceeded. Creating a new API key does NOT reset quota; please check your account billing/credits. (${errorMessage})`);
+          } else {
+            throw new Error(`Rate limit exceeded. Automatically retrying... (${errorMessage})`);
+          }
         } else if (response.status === 401 || response.status === 403) {
           throw new Error(`Authentication failed. Check API key. (${errorMessage})`);
         } else if (response.status === 402) {
@@ -610,9 +622,9 @@ Return valid JSON in this exact structure:
         } else if (response.status === 503) {
           throw new Error(`Service unavailable. Will retry. (${errorMessage})`);
         }
-      } catch (jsonError) {
-        // If error response isn't JSON, use status text
-        console.error('Could not parse error response:', jsonError);
+      } catch (err) {
+        // If we fail inside the error parser, drop down
+        console.error('Error parsing error response:', err);
       }
 
       throw new Error(`API error (${response.status}): ${errorMessage}`);
@@ -712,6 +724,10 @@ Return valid JSON in this exact structure:
     // Multiple chunks - analyze each and merge
     const chunkResults = [];
     for (let i = 0; i < chunks.length; i++) {
+      if (i > 0) {
+        setCurrentStep(`Run ${runNumber}: Cooling down before chunk ${i + 1}/${chunks.length}... (2s)`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
       setCurrentStep(`Run ${runNumber}: Analyzing chunk ${i + 1}/${chunks.length}`);
       const result = await callAIAPIWithRetry(chunks[i], seed, true, i, chunks.length);
       chunkResults.push(result);
@@ -1451,6 +1467,11 @@ Return valid JSON in this exact structure:
         setStatus('analyzing');
 
         for (let runIdx = 0; runIdx < TOTAL_RUNS; runIdx++) {
+          if (runIdx > 0) {
+            setCurrentStep(`File ${fileIdx + 1}/${totalFiles}: ${fileName} - Cooling down before Run ${runIdx + 1}... (3s)`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+
           const runNumber = runIdx + 1;
           setCurrentRun(runNumber);
 
